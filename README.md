@@ -1,0 +1,52 @@
+# Lasers4MaaS – LCA models
+
+Brightway2 life-cycle assessment of laser welding (State of the Art vs. Dynamic Beam Welding) and the pre-/post-welding processes around it, for five use cases: Heat exchanger, Fuel tank, Heterogeneous pipe, Freeze Dryers Shelf and Battery cooling plate.
+
+The notebooks run in this order:
+
+```
+welding_task.ipynb ─┐
+                    ├─> results/*_LCIA_results.json ─> workflow_assembly.ipynb
+pre_post.ipynb ─────┘
+```
+
+## Tracked files
+
+### `welding_task.ipynb`
+Unit processes for the welding step (functional unit: 1 welded unit).
+
+| | |
+|---|---|
+| **Inputs** | Brightway project `Lasers4MaaS` with the `ecoinvent-3.12-cutoff` and `ecoinvent-3.12-biosphere` databases and the EF v3.1 methods (ecoinvent is imported automatically if missing). <br> Hard-coded in the notebook: welding parameters per use case and technology (power, speed, weld length, gas flow; min/max ranges), `MATERIAL_ASSIGNMENTS`, `COST_FACTORS`, and EU-27 electricity prices (Eurostat). |
+| **Processing** | Builds electricity (RER medium-voltage market) and argon exchanges from the parameters. Writes two Brightway databases, `State_of_the_Art` and `Dynamic_Beam_Welding`. Runs LCIA for the minimum, amount and maximum scenarios across six EF 3.1 indicators and consumable costs. Includes a regional analysis that swaps the RER electricity for each EU member state's market, with interactive map and scatter widgets. |
+| **Outputs** | `State_of_the_Art` and `Dynamic_Beam_Welding` databases in the Brightway project. <br> `results/State_of_the_Art_Dynamic_Beam_Welding_LCIA_results.csv` and `.json`. <br> Inline comparison plots and the regional maps. |
+
+### `pre_post.ipynb`
+Unit processes for the chemical and mechanical pre- and post-welding treatments.
+
+| | |
+|---|---|
+| **Inputs** | Same Brightway project and ecoinvent databases as above. <br> Hard-coded in the notebook: `CHEM_PREPOST_PARAMS` (alkaline degreasing, pickling, passivation; per material), `MECH_PREPOST_PARAMS` (mechanical treatment; per material), `INDUSTRIAL_TANK_SIZES`, U-values for tank heat loss, `COST_FACTORS`. <br> Ecoinvent flows (electricity, water, NaOH, HCl, HNO3, abrasives and others) are located with `find_ecoinvent_activity`. Several mechanical flows are proxies. |
+| **Processing** | Writes the `Chemical_Pre_and_Post_processes` and `Mechanical_Pre_and_Post_processes` databases. Runs LCIA for the minimum, amount and maximum scenarios. A proxy-check table flags ecoinvent flows that are missing or ambiguous. |
+| **Outputs** | `Chemical_Pre_and_Post_processes` and `Mechanical_Pre_and_Post_processes` databases in the Brightway project. <br> `results/Chemical_Pre_and_Post_processes_Mechanical_Pre_and_Post_processes_LCIA_results.csv` and `.json`. |
+
+### `workflow_assembly.ipynb`
+Combines the welding and pre-/post-processing results into a full workflow per product. It does not use Brightway.
+
+| | |
+|---|---|
+| **Inputs** | `results/*LCIA*.json`, produced by `welding_task.ipynb` and `pre_post.ipynb`. <br> `PRODUCT_WORKFLOWS` in the notebook, which sets each product's material, which pre- and post-steps apply, and prototype/production parameters. |
+| **Processing** | Looks up each active step's impacts by step, material and scenario. Sums them with the welding impacts for each technology. |
+| **Outputs** | Interactive Plotly stacked-bar charts of impact per product and technology (pre, welding and post contributions), shown in the notebook. No files are written. |
+
+## Untracked folders
+
+These are not in git. They hold the data the notebooks depend on.
+
+- `results/`: LCIA outputs, plus `generate_lca_graphs.py` and the report figures.
+- `databases/`: Brightway database exports (`.bw2package`).
+- `Input_data/`, `data_collection/`: source spreadsheets and cost plots.
+
+## Setup
+
+Python with `bw2data`, `bw2io`, `bw2calc`, `bw2analyzer`, `pandas`, `numpy`, `matplotlib`, `plotly`, `ipywidgets` and `tabulate`. The first run needs an ecoinvent licence to import ecoinvent 3.12 (cutoff).
