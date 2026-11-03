@@ -1,6 +1,6 @@
 # Lasers4MaaS – LCA models
 
-Brightway2 life-cycle assessment of laser joining (State of the Art vs. Dynamic Beam Joining) and the pre-/post-joining processes around it, for five use cases: Heat exchanger, Fuel tank, Heterogeneous pipe, Freeze Dryers Shelf and Battery cooling plate.
+Brightway2 life-cycle assessment of laser joining (State of the Art vs. Dynamic Beam Shaping) and the pre-/post-joining processes around it, for five use cases: Heat exchanger, Fuel tank, Heterogeneous pipe, Freeze Dryers Shelf and Battery cooling plate.
 
 The notebooks run in this order:
 
@@ -18,16 +18,16 @@ Unit processes for the joining step (functional unit: 1 joined unit).
 | | |
 |---|---|
 | **Inputs** | Brightway project `Lasers4MaaS` with the `ecoinvent-3.12-cutoff` and `ecoinvent-3.12-biosphere` databases and the EF v3.1 methods (ecoinvent is imported automatically if missing). <br> Hard-coded in the notebook: joining parameters per use case and technology (power, speed, joint length, gas flow; min/max ranges), `MATERIAL_ASSIGNMENTS`, `COST_FACTORS`, and EU-27 electricity prices (Eurostat). |
-| **Processing** | Builds electricity (RER medium-voltage market) and argon exchanges from the parameters. Writes two Brightway databases, `State_of_the_Art` and `Dynamic_Beam_Joining`. Runs LCIA for the minimum, amount and maximum scenarios across six EF 3.1 indicators and consumable costs. Includes a regional analysis that swaps the RER electricity for each EU member state's market, with interactive map and scatter widgets. |
-| **Outputs** | `State_of_the_Art` and `Dynamic_Beam_Joining` databases in the Brightway project. <br> `results/State_of_the_Art_Dynamic_Beam_Joining_LCIA_results.csv` and `.json`. <br> Inline comparison plots and the regional maps. |
+| **Processing** | Builds electricity (RER medium-voltage market) and argon exchanges from the parameters. Writes two Brightway databases, `State_of_the_Art` and `Dynamic_Beam_Shaping`. Runs LCIA for the minimum, amount and maximum scenarios across six EF 3.1 indicators and consumable costs. Includes a regional analysis that swaps the RER electricity for each EU member state's market, with interactive map and scatter widgets. |
+| **Outputs** | `State_of_the_Art` and `Dynamic_Beam_Shaping` databases in the Brightway project. <br> `results/State_of_the_Art_Dynamic_Beam_Shaping_LCIA_results.csv` and `.json`. <br> Inline comparison plots and the regional maps. |
 
 ### `pre_post.ipynb`
 Unit processes for the chemical and mechanical pre- and post-joining treatments.
 
 | | |
 |---|---|
-| **Inputs** | Same Brightway project and ecoinvent databases as above. <br> Hard-coded in the notebook: `CHEM_PREPOST_PARAMS` (alkaline degreasing, pickling, passivation; per material), `MECH_PREPOST_PARAMS` (mechanical treatment; per material), `INDUSTRIAL_TANK_SIZES`, U-values for tank heat loss, `COST_FACTORS`. <br> Ecoinvent flows (electricity, water, NaOH, HCl, HNO3, abrasives and others) are located with `find_ecoinvent_activity`. Several mechanical flows are proxies. |
-| **Processing** | Writes the `Chemical_Pre_and_Post_processes` and `Mechanical_Pre_and_Post_processes` databases. Runs LCIA for the minimum, amount and maximum scenarios. A proxy-check table flags ecoinvent flows that are missing or ambiguous. |
+| **Inputs** | Same Brightway project and ecoinvent databases as above. <br> Hard-coded in the notebook: `CHEM_PREPOST_PARAMS` (alkaline degreasing, pickling, passivation; per material), `MECH_PREPOST_PARAMS` (mechanical treatment; per material), `INDUSTRIAL_TANK_SIZES`, U-values for tank heat loss, `COST_FACTORS` (electricity, argon, nitrogen and indicative placeholder prices for water, chemicals, abrasives, coolant and tool material), and EU-27 electricity prices (Eurostat). <br> Ecoinvent flows (electricity, water, NaOH, HCl, HNO3, abrasives and others) are located with `find_ecoinvent_activity`. Several mechanical flows are proxies. |
+| **Processing** | Writes the `Chemical_Pre_and_Post_processes` and `Mechanical_Pre_and_Post_processes` databases. Runs LCIA for the minimum, amount and maximum scenarios; results are cached in `results/.cache` (set `FORCE_RECALC = True` to recompute). Includes a regional analysis that swaps the RER electricity for each EU member state's market, with interactive map and scatter widgets. A proxy-check table flags ecoinvent flows that are missing or ambiguous. |
 | **Outputs** | `Chemical_Pre_and_Post_processes` and `Mechanical_Pre_and_Post_processes` databases in the Brightway project. <br> `results/Chemical_Pre_and_Post_processes_Mechanical_Pre_and_Post_processes_LCIA_results.csv` and `.json`. |
 
 ### `workflow_assembly.ipynb`
