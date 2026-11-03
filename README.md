@@ -26,7 +26,7 @@ Unit processes for the chemical and mechanical pre- and post-joining treatments.
 
 | | |
 |---|---|
-| **Inputs** | Same Brightway project and ecoinvent databases as above. <br> Hard-coded in the notebook: `CHEM_PREPOST_PARAMS` (alkaline degreasing, pickling, passivation; per material), `MECH_PREPOST_PARAMS` (mechanical treatment; per material), `INDUSTRIAL_TANK_SIZES`, U-values for tank heat loss, `COST_FACTORS` (electricity, argon, nitrogen and indicative placeholder prices for water, chemicals, abrasives, coolant and tool material), and EU-27 electricity prices (Eurostat). <br> Ecoinvent flows (electricity, water, NaOH, HCl, HNO3, abrasives and others) are located with `find_ecoinvent_activity`. Several mechanical flows are proxies. |
+| **Inputs** | Same Brightway project and ecoinvent databases as above. <br> Hard-coded in the notebook: `CHEM_PREPOST_PARAMS` (alkaline degreasing, chemical etching (aluminium), pickling, passivation; per material), `MECH_PREPOST_PARAMS` (mechanical treatment; per material), `INDUSTRIAL_TANK_SIZES`, U-values for tank heat loss, `COST_FACTORS` (electricity, argon, nitrogen and indicative placeholder prices for water, chemicals, abrasives, coolant and tool material), and EU-27 electricity prices (Eurostat). <br> Ecoinvent flows (electricity, water, NaOH, HCl, HNO3, abrasives and others) are located with `find_ecoinvent_activity`. Several mechanical flows are proxies. |
 | **Processing** | Writes the `Chemical_Pre_and_Post_processes` and `Mechanical_Pre_and_Post_processes` databases. Runs LCIA for the minimum, amount and maximum scenarios; results are cached in `results/.cache` (set `FORCE_RECALC = True` to recompute). Includes a regional analysis that swaps the RER electricity for each EU member state's market, with interactive map and scatter widgets. A proxy-check table flags ecoinvent flows that are missing or ambiguous. |
 | **Outputs** | `Chemical_Pre_and_Post_processes` and `Mechanical_Pre_and_Post_processes` databases in the Brightway project. <br> `results/Chemical_Pre_and_Post_processes_Mechanical_Pre_and_Post_processes_LCIA_results.csv` and `.json`. |
 
@@ -38,6 +38,15 @@ Combines the joining and pre-/post-processing results into a full workflow per p
 | **Inputs** | `results/*LCIA*.json`, produced by `joining_task.ipynb` and `pre_post.ipynb`. <br> `PRODUCT_WORKFLOWS` in the notebook, which sets each product's material, which pre- and post-steps apply, and prototype/production parameters. |
 | **Processing** | Looks up each active step's impacts by step, material and scenario. Sums them with the joining impacts for each technology. |
 | **Outputs** | Interactive Plotly stacked-bar charts of impact per product and technology (pre, joining and post contributions), shown in the notebook. No files are written. |
+
+### `L4M_R&D.ipynb`
+Footprint of identifying one set of optimised welding parameters per use case (Fusion welding, Pharma welding, Battery cooling welding), for a state-of-the-art (SoA) R&D scenario and an L4M-enabled R&D scenario (fewer physical experiments plus digital lab runs, joining with Dynamic Beam Shaping). It does not feed `workflow_assembly.ipynb`.
+
+| | |
+|---|---|
+| **Inputs** | Same Brightway project and ecoinvent databases as above. <br> `databases/L4M_database.bw2package`, plus `CT-scan test.bw2package` and `Metallurgic test (CIVAN).bw2package` which it links to (imported only if the project lacks them or holds them empty). <br> Hard-coded in the notebook: `DBS_ENERGY_FACTOR` (DBS uses 20% less electricity than the standard laser), `RD_SCENARIOS` (physical experiments, digital runs and verification samples per set of parameters; placeholders). |
+| **Processing** | Writes the `L4M_RD_parameter_sets` database (6 product systems, reference flow 1 set of optimised parameters). One experiment = one coupon weld (`001_Physical_Laser welding`, pulling in its cleaned and cut coupons) + the use-case welding; one digital run = `Digital lab processes`; each set is verified by one metallographic sample (`08_Etching`) and one `CT-scan X-ray`. Impacts are checked against `bw2calc`. |
+| **Outputs** | `L4M_RD_parameter_sets` database. Inline stacked bar (by process, grouped into pre-processing, joining, post-processing, testing and digital lab), Sankey and regional (EU electricity markets plus GB) maps. Cached grid impacts in `results/.cache`. |
 
 ## Untracked folders
 
