@@ -1,0 +1,26 @@
+[project]
+name = "l4m-lca"
+version = "0.1.0"
+description = "Lasers4MaaS life cycle assessment models (Brightway 2.5)"
+requires-python = ">=3.11"
+dependencies = [
+    "bw2data>=4.7",
+    "bw2calc>=2.4",
+    "bw2io>=0.9",
+    "numpy",
+    "pandas",
+    "plotly",
+    "ipywidgets",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["l4m_lca"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+markers = ["brightway: needs the Lasers4MaaS Brightway project (skipped if missing)"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]

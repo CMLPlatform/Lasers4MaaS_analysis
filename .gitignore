@@ -5,3 +5,5 @@ Input_data
 results/
 .DS_Store
 .vscode
+__pycache__/
+.pytest_cache/
