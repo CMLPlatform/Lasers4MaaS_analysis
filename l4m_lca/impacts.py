@@ -22,7 +22,13 @@ from bw2calc import LCA
 
 SCENARIO_FIELDS = {"minimum": ("minimum", "min"), "amount": ("amount",), "maximum": ("maximum", "max")}
 
-ELECTRICITY_MARKET = re.compile(r"market (group )?for electricity, medium voltage")
+# Medium-voltage electricity supply in each background database:
+# ecoinvent 3: "market (group) for electricity, medium voltage"
+# BAFU (ecoinvent v2 names): "Electricity, medium voltage, at grid" or "..., production RER, at grid"
+ELECTRICITY_MARKET = re.compile(
+    r"market (group )?for electricity, medium voltage"
+    r"|Electricity, medium voltage, (production [^,]+, )?at grid$"
+)
 
 
 def scenario_amount(exchange, scenario):

@@ -94,3 +94,11 @@ def test_mechanical_exchanges():
     assert ignored == ["time_min"]
     assert exchanges[2]["minimum"] == pytest.approx(0.9)
     assert exchanges[2]["maximum"] == pytest.approx(1.8)
+
+
+def test_mechanical_flow_without_dataset_is_not_modelled():
+    params = {"electricity_kwh": {"min": 0.1, "max": 0.2}, "tool_wear_pct": {"min": 5, "max": 15}}
+    flows = {"electricity_kwh": (ELEC, 1.0), "tool_wear_pct": (None, 0.0001)}
+    exchanges, ignored = mechanical_exchanges("db", "x", params, flows)
+    assert ignored == ["tool_wear_pct"]
+    assert len(exchanges) == 2

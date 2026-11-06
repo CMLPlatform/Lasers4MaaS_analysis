@@ -73,14 +73,15 @@ def mechanical_exchanges(database_name, code, params, parameter_flows):
     `params` is the material-specific dict of MECH_PREPOST_PARAMS. Each value is the total
     consumed over one execution, as a {"min", "max"} range.
     `parameter_flows` maps a parameter name to (flow, factor to the ecoinvent unit).
-    Parameters without a flow (time, area, roughness) are not modelled.
+    Parameters without a flow (time, area, roughness), or with flow None (no dataset in
+    the background database), are not modelled.
 
     Returns (exchanges, names of the parameters without a flow).
     """
     exchanges = [production(database_name, code)]
     ignored = []
     for parameter, value in params.items():
-        if parameter not in parameter_flows:
+        if parameter not in parameter_flows or parameter_flows[parameter][0] is None:
             ignored.append(parameter)
             continue
         flow, factor = parameter_flows[parameter]

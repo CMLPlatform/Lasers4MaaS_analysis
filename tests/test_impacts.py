@@ -67,3 +67,17 @@ def test_unsupported_exchange_type():
     p = process("fg", "p", "p").add(Node("ei", "x", "x"), 1.0, "substitution")
     with pytest.raises(ValueError):
         foreground_flows(p, FG)
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("market group for electricity, medium voltage", True),
+    ("market for electricity, medium voltage", True),
+    ("Electricity, medium voltage, at grid", True),                     # BAFU country mix
+    ("Electricity, medium voltage, production RER, at grid", True),     # BAFU production mix
+    ("Electricity, medium voltage, SBB, at grid", False),               # railway grid
+    ("Electricity, medium voltage, PV, open ground, single-Si", False),
+    ("market for electricity, low voltage", False),
+])
+def test_is_electricity_both_backgrounds(name, expected):
+    from l4m_lca.impacts import is_electricity
+    assert is_electricity({"name": name}) is expected

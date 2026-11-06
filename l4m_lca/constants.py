@@ -2,6 +2,23 @@
 
 SCENARIOS = ("minimum", "amount", "maximum")
 
+# Background databases. Each has its own Brightway project and results folder,
+# so that the results of the two backgrounds do not overwrite each other.
+BACKGROUNDS = {
+    "ecoinvent": {
+        "project": "Lasers4MaaS",
+        "database": "ecoinvent-3.12-cutoff",
+        "results": "results",
+        "country_electricity": "market for electricity, medium voltage",
+    },
+    "bafu": {
+        "project": "Lasers4MaaS_BAFU",
+        "database": "BAFU-2026",
+        "results": "results/bafu",
+        "country_electricity": "Electricity, medium voltage, at grid",
+    },
+}
+
 # EU member states: ISO 3166 alpha-2 code (ecoinvent location) -> alpha-3 code (Plotly maps)
 EU27 = {
     "AT": "AUT", "BE": "BEL", "BG": "BGR", "HR": "HRV", "CY": "CYP", "CZ": "CZE", "DK": "DNK",

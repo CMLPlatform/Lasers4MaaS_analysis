@@ -18,7 +18,35 @@ pre_post.ipynb ─────┘
 
 L4M_R&D.ipynb        (independent)
 database_explorer.ipynb (independent)
+background_comparison.ipynb (after the 3 notebooks above ran with both backgrounds)
 ```
+
+## Background databases
+
+`joining_task`, `pre_post` and `workflow_assembly` run with one of 2 background databases. Set `BACKGROUND` in the notebook, or the environment variable `L4M_BACKGROUND`.
+
+| `BACKGROUND` | Project | Database | Results |
+|---|---|---|---|
+| `"ecoinvent"` (default) | `Lasers4MaaS` | `ecoinvent-3.12-cutoff` | `results/` |
+| `"bafu"` | `Lasers4MaaS_BAFU` | `BAFU-2026` | `results/bafu/` |
+
+The profiles are in `l4m_lca/constants.py` (`BACKGROUNDS`). The activity names of each background are parameters in the notebooks.
+
+### BAFU-2026
+
+BAFU-2026 is the free LCI database of the Swiss Federal Administration (EcoSpold v1, exported by openLCA, ecoinvent v2 names). Cite it as "Life Cycle Inventory database of the Swiss Federal Administration, BAFU:2026".
+
+To import it, run `python import_bafu.py` one time. The script copies `Lasers4MaaS` to `Lasers4MaaS_BAFU` (for the EF 3.1 methods) and imports BAFU there. `l4m_lca/bafu.py` repairs the openLCA export:
+
+- It adds the EcoSpold01 namespace and normalises the timestamps, dates and empty attributes, then parses without schema validation.
+- It maps the openLCA compartments and the old flow names to `ecoinvent-3.12-biosphere`: renames after ecoinvent 3.3, synonyms, ionic forms ("Mercury" → "Mercury II"), water kg → m³, and the parent compartment as a fallback.
+- It repairs technosphere links with an empty location, the location "ENTSO", and "cubic meter" vs "normal cubic meter".
+
+**Assumptions:** unspecified "Chromium" is "Chromium III". "Carbon dioxide" and "Carbon monoxide" without origin are fossil. Gas "cubic meter" is "normal cubic meter".
+
+**Import quality:** 96.6% of the biosphere exchanges and 99.99% of the technosphere exchanges link. The rest (mainly resources, noise and PM10) are removed. See `results/bafu/unlinked_exchanges.csv`.
+
+**Limits:** BAFU has no electricity data set for Cyprus and Malta, and no tungsten carbide (tool wear is not modelled with BAFU).
 
 ## Notebooks
 
@@ -61,6 +89,9 @@ Footprint of 1 set of optimised welding parameters per use case (Fusion welding,
 ### `database_explorer.ipynb`
 Interactive browser of a Brightway database. Click an input, an output or a consumer to open that process.
 
+### `background_comparison.ipynb`
+Ratios BAFU / ecoinvent of the joining, pre/post and material results, the impact of 1 unit of the main background inputs, and the BAFU import quality.
+
 ## The `l4m_lca` package
 
 | Module | Contents |
@@ -73,6 +104,7 @@ Interactive browser of a Brightway database. Click an input, an output or a cons
 | `lcia`, `regional` | Scenario result tables, regional tables, export. |
 | `workflow` | Assembly per product. |
 | `rd` | Product systems of the R&D study. |
+| `bafu`, `compare` | Import of BAFU-2026, comparison of 2 backgrounds. |
 | `plots`, `explorer` | Interactive figures. |
 
 ### How the LCIA engine works

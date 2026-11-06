@@ -10,12 +10,24 @@ from .impacts import consumable_cost, foreground_flows
 from .lcia import COST_COLUMN
 from .project import category, find_activity
 
+from bw2data.errors import UnknownObject
+
 ELECTRICITY_MARKET_NAME = "market for electricity, medium voltage"
 
 
-def electricity_markets(database, countries):
-    """{country code: medium-voltage electricity market of that country} in `database`."""
-    return {c: find_activity(database.name, ELECTRICITY_MARKET_NAME, c) for c in countries}
+def electricity_markets(database, countries, name=ELECTRICITY_MARKET_NAME):
+    """{country code: medium-voltage electricity market of that country} in `database`.
+
+    `name` is the name of the country datasets (ecoinvent 3: the default; BAFU:
+    "Electricity, medium voltage, at grid"). A country without a dataset is left out, with a warning.
+    """
+    markets = {}
+    for country in countries:
+        try:
+            markets[country] = find_activity(database.name, name, country)
+        except UnknownObject:
+            print(f"WARNING: no {name!r} for {country} in {database.name}. The country is left out.")
+    return markets
 
 
 def regional_table(databases, impacts, markets, electricity_prices, prices, baseline, scenarios=SCENARIOS, foreground=None):

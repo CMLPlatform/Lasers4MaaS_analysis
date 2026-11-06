@@ -15,15 +15,19 @@ DEFAULT_INDICATORS = [
 ]
 
 
-def open_project(project, ecoinvent="ecoinvent-3.12-cutoff", version="3.12", system_model="cutoff"):
-    """Set the current project. Import ecoinvent if the project does not have it.
+def open_project(project, background="ecoinvent-3.12-cutoff", version="3.12", system_model="cutoff"):
+    """Set the current project and return the background database.
 
-    Returns the ecoinvent database.
+    If the project does not have an ecoinvent background, import that ecoinvent release.
+    Any other background (for example BAFU) must be imported first (see l4m_lca.bafu).
     """
     bd.projects.set_current(project)
-    if ecoinvent not in bd.databases:
+    if background not in bd.databases:
+        if not background.startswith("ecoinvent-"):
+            raise RuntimeError(f"Project {project!r} has no database {background!r}. "
+                               "Import it first, for example with l4m_lca.bafu.import_bafu.")
         bi.import_ecoinvent_release(version=version, system_model=system_model)
-    return bd.Database(ecoinvent)
+    return bd.Database(background)
 
 
 def ensure_package(db_name, package_file, force=False):

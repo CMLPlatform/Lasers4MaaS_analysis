@@ -14,6 +14,8 @@ Modules:
     regional  Impacts with the electricity market of each country.
     workflow  Assembly of material, pre-joining, joining and post-joining per product.
     rd        Product systems of the L4M R&D study.
+    bafu      Import of the BAFU-2026 database (openLCA EcoSpold v1) as an alternative background.
+    compare   Comparison of the results of two background databases.
     plots     Interactive Plotly figures.
     explorer  Interactive Brightway database explorer.
 """

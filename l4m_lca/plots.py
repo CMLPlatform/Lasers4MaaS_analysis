@@ -120,7 +120,7 @@ def regional_explorer(table, filters, units, title, baseline="RER", countries=EU
         title: function(dict of filter values) -> figure title.
         baseline: country label of the rows with the electricity as modelled.
     """
-    codes = list(countries)
+    codes = [c for c in countries if c in set(table["country"])]  # countries without data are left out
     iso3 = [countries[c] for c in codes]
     indicators = list(dict.fromkeys(table["indicator"]))
     w_a = dropdown(indicators, "Indicator A", indicators[0])
