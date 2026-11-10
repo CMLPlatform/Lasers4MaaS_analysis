@@ -210,24 +210,33 @@ def _follow_legend(fig, panels):
     """Recalculate the stack totals (and y ranges) from the visible bars after a legend click.
 
     `panels` is a list of {"bars": trace indices, "total": trace index, "row", "col"}.
+    Leave out "row" and "col" for a figure with one y axis.
+    The y range covers the positive and the negative stacks of the visible bars.
     """
     def rescale(*_):
         with fig.batch_update():
             for panel in panels:
                 total = fig.data[panel["total"]]
-                now = np.zeros(len(total.x))
+                n = len(total.y)  # not total.x: a multi-level x axis is a list of levels
+                pos = np.zeros(n)
+                neg = np.zeros(n)
                 for i in panel["bars"]:
                     if fig.data[i].visible in (True, None):
-                        now = now + np.asarray(fig.data[i].y, dtype=float)
+                        y = np.nan_to_num(np.asarray(fig.data[i].y, dtype=float))
+                        pos = pos + np.clip(y, 0, None)
+                        neg = neg + np.clip(y, None, 0)
+                now = pos + neg
                 total.y = now
                 total.text = [f"{t:.3g}" for t in now]
-                if "row" in panel:
-                    top = now.max()
-                    fig.update_yaxes(range=[0, top * 1.15 if top > 0 else 1], row=panel["row"], col=panel["col"])
+                top, bottom = max(pos.max(initial=0), 0), min(neg.min(initial=0), 0)
+                span = (top - bottom) or 1
+                where = {"row": panel["row"], "col": panel["col"]} if "row" in panel else {}
+                fig.update_yaxes(range=[bottom - 0.05 * span if bottom < 0 else 0, top + 0.15 * span], **where)
 
     for panel in panels:
         for i in panel["bars"]:
             fig.data[i].on_change(rescale, "visible")
+    rescale()
 
 
 # Colour of each workflow step: material green, pre-joining blues, joining orange, post-joining violets.
