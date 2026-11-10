@@ -74,7 +74,7 @@ def enabled_steps(config):
     return [(CONFIG_STAGE[stage], step) for stage in CONFIG_STAGE for step, on in config[stage].items() if on]
 
 
-def workflow_table(workflows, joining, prepost, material, case, scenario="amount"):
+def workflow_table(workflows, joining, prepost, material, case, scenario="amount", include_material=True):
     """Contribution of each step to each product and joining technology.
 
     Args:
@@ -82,6 +82,7 @@ def workflow_table(workflows, joining, prepost, material, case, scenario="amount
         joining, prepost, material: exported result tables (DataFrames).
         case: "prototype" or "production"; it selects the part weight of the material stage.
         scenario: "minimum", "amount" or "maximum".
+        include_material: False removes the material stage ("mat") from the table.
 
     Returns a long table: product, technology, stage, step, indicator, value.
     A step without data counts as 0, with a warning.
@@ -90,11 +91,13 @@ def workflow_table(workflows, joining, prepost, material, case, scenario="amount
     rows = []
     for product, config in workflows.items():
         mat = config["material"]
-        weight = mean_part_weight(config, case)
-        mat_rows = material[material["Key"] == mat]
-        if weight is None or mat_rows.empty:
-            print(f"WARNING: no part weight or material LCIA for {product}. Material stage = 0.")
-        steps = [("mat", "material production", mat_rows, weight or 0.0)]
+        steps = []
+        if include_material:
+            weight = mean_part_weight(config, case)
+            mat_rows = material[material["Key"] == mat]
+            if weight is None or mat_rows.empty:
+                print(f"WARNING: no part weight or material LCIA for {product}. Material stage = 0.")
+            steps.append(("mat", "material production", mat_rows, weight or 0.0))
         for stage, step in enabled_steps(config):
             found = step_rows(prepost, step, mat)
             if found.empty:

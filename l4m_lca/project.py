@@ -53,6 +53,42 @@ def check_links(db_names):
         bd.Database(name).process()
 
 
+def relink_background(db_names, source, target, links):
+    """Point each input from database `source` to its counterpart in database `target`.
+
+    Use it for imported packages that link to ecoinvent, in a project with another background.
+    `links` maps (source name, location) -> (target name, location).
+    It makes no change if one input has no link or a different unit: it raises KeyError or ValueError.
+    Inputs that are already relinked stay as they are, so a second call does nothing.
+
+    Returns {(source name, location): number of relinked exchanges}.
+    """
+    exchanges = [e for name in db_names for act in bd.Database(name) for e in act.exchanges()
+                 if e["type"] != "production" and e.input["database"] == source]
+    missing = sorted({(e.input["name"], e.input["location"]) for e in exchanges} - set(links))
+    if missing:
+        raise KeyError(f"No {target} link for these {source} inputs: {missing}")
+    counterparts = {k: find_activity(target, *v) for k, v in links.items()}
+    for e in exchanges:
+        new = counterparts[e.input["name"], e.input["location"]]
+        if new["unit"] != e.input["unit"]:
+            raise ValueError(f"Unit of {e.input['name']!r} ({e.input['unit']}) differs from "
+                             f"{new['name']!r} ({new['unit']})")
+    counts = {}
+    for e in exchanges:
+        old = (e.input["name"], e.input["location"])
+        e["input"] = counterparts[old].key
+        e.save()
+        counts[old] = counts.get(old, 0) + 1
+    return counts
+
+
+def background_inputs(db_names, foreground):
+    """Names of the databases (other than `foreground` and biosphere) that `db_names` take inputs from."""
+    return {e.input["database"] for name in db_names for act in bd.Database(name)
+            for e in act.technosphere() if e.input["database"] not in foreground}
+
+
 def ef31_methods(indicators=DEFAULT_INDICATORS):
     """EF 3.1 methods whose name contains one of `indicators` (long-term variants excluded)."""
     return [

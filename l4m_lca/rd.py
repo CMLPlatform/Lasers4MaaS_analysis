@@ -20,13 +20,14 @@ def make_round(coupon=0, prototype=0, digital=0, optimization=0, verification=1)
 class RDBuilder:
     """Collects the Brightway data of the R&D database, then writes it."""
 
-    def __init__(self, name, background_name):
+    def __init__(self, name, background_name, include_material=True):
         self.name = name
         self.background_name = background_name
+        self.include_material = include_material
         self.data = {}
 
     def sourcing(self, market):
-        """Raw material sourcing: supplies 1 unit of an ecoinvent material.
+        """Raw material sourcing: supplies 1 unit of a background material.
 
         The process that uses the material then is a pure service.
         """
@@ -50,7 +51,8 @@ class RDBuilder:
             replace: {input key: other key}.
             drop: input keys to remove.
             extra: (key, amount) inputs to add.
-            sourcing: move each ecoinvent aluminium input to a Raw material sourcing process.
+            sourcing: move each aluminium input of the background database to a Raw material sourcing process.
+                If `include_material` is False, remove these inputs instead.
         """
         key = (self.name, proc["code"] + suffix)
         prod = next(e["amount"] for e in proc.exchanges() if e["type"] == "production")
@@ -58,10 +60,13 @@ class RDBuilder:
         for e in proc.exchanges():
             if e["type"] == "production" or e["input"] in drop:
                 continue
-            amount = e["amount"] * (electricity if "electricity" in e.input["name"] else 1)
+            # Lower case: BAFU names start with a capital ("Electricity, ...", "Aluminium ...")
+            amount = e["amount"] * (electricity if "electricity" in e.input["name"].lower() else 1)
             target = (replace or {}).get(e["input"], e["input"])
             if (sourcing and e["type"] == "technosphere" and e.input["database"] == self.background_name
-                    and "aluminium" in e.input["name"]):
+                    and "aluminium" in e.input["name"].lower()):
+                if not self.include_material:
+                    continue
                 target = self.sourcing(e.input)
             exchanges.append({"input": target, "amount": amount, "type": e["type"]})
         exchanges += [{"input": k, "amount": a, "type": "technosphere"} for k, a in extra]
@@ -107,7 +112,7 @@ class RDBuilder:
 
 
 def build_rd_database(name, background_name, l4m, metallurgic, ct_scan, use_cases, scenarios,
-                      dbs_energy_factor, optimization_kwh):
+                      dbs_energy_factor, optimization_kwh, include_material=True):
     """Write the R&D database and return {(use case, scenario): product system}.
 
     Args:
@@ -116,8 +121,9 @@ def build_rd_database(name, background_name, l4m, metallurgic, ct_scan, use_case
         scenarios: {use case: {scenario: {"joining": technology, "rounds": {round: make_round(...)}}}}.
         dbs_energy_factor: factor on the electricity of the DBS joining steps.
         optimization_kwh: electricity of one optimization run.
+        include_material: False removes the material inputs (aluminium of the coupons and verifications).
     """
-    b = RDBuilder(name, background_name)
+    b = RDBuilder(name, background_name, include_material)
 
     # Coupon preparation: cutting and cleaning are services; the aluminium comes from Raw material sourcing
     met_cut, met_clean = metallurgic["01_Cutting"], metallurgic["02_Cleaning"]

@@ -54,6 +54,13 @@ def test_workflow_table_scenario(tables):
     assert dbs["joining"] == 1.5 and dbs["degreasing"] == 0.2 and dbs["material production"] == 8.0
 
 
+def test_workflow_table_without_material(tables):
+    t = workflow_table(WORKFLOWS, *tables, case="prototype", scenario="amount", include_material=False)
+    assert "mat" not in set(t.stage)
+    tig = t[(t.technology == "TIG") & (t.indicator == GWP)].set_index("step")["value"]
+    assert tig["joining"] == 2.0 and tig["degreasing"] == 0.1
+
+
 def test_cumulative_regional():
     def reg(process, key, values):
         return [{"process": process, "key": key, "scenario": "amount", "country": c, "indicator": GWP, "impact": v}
