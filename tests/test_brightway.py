@@ -12,7 +12,7 @@ PROJECT = "Lasers4MaaS"
 ECOINVENT = "ecoinvent-3.12-cutoff"
 FOREGROUND = ["State_of_the_Art", "Dynamic_Beam_Shaping", "Chemical_Pre_and_Post_processes",
               "Mechanical_Pre_and_Post_processes", "L4M system", "Mettalurgic test (CIVAN)",
-              "CT-scan test", "L4M_RD_parameter_sets"]
+              "RD_validation_tests", "L4M_RD_parameter_sets"]
 
 pytestmark = pytest.mark.brightway
 

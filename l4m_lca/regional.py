@@ -6,8 +6,8 @@ Only the electricity changes. All other inputs keep their ecoinvent datasets and
 import pandas as pd
 
 from .constants import SCENARIOS
+from .costs import cost_values, labour_hours, personnel_cost
 from .impacts import consumable_cost, foreground_flows
-from .lcia import COST_COLUMN
 from .project import category, find_activity
 
 from bw2data.errors import UnknownObject
@@ -30,8 +30,9 @@ def electricity_markets(database, countries, name=ELECTRICITY_MARKET_NAME):
     return markets
 
 
-def regional_table(databases, impacts, markets, electricity_prices, prices, baseline, scenarios=SCENARIOS, foreground=None):
-    """Impacts and consumable cost of each process, with each country's electricity market.
+def regional_table(databases, impacts, markets, electricity_prices, prices, baseline, scenarios=SCENARIOS,
+                   foreground=None, wages=None):
+    """Impacts and costs of each process, with each country's electricity market and labour cost.
 
     Args:
         databases: Brightway databases whose processes are calculated.
@@ -40,10 +41,15 @@ def regional_table(databases, impacts, markets, electricity_prices, prices, base
         electricity_prices: {country code: EUR/kWh}; it must also have `baseline`.
         prices: {activity key: EUR per unit} for the other inputs.
         baseline: label of the rows with the electricity as modelled (for example "RER").
+        wages: {country code: labour cost in EUR/h}, with `baseline`. A process with labour hours
+            in a country without a labour cost gets NaN personnel costs and nominal OPEX.
 
     Returns a long table: database, process, key, scenario, country, indicator, impact.
+    The cost indicators are the consumable costs, the personnel costs and the nominal OPEX.
     """
+    wages = wages or {}
     foreground = set(foreground or [db.name for db in databases])
+    no_wage = set()
     categories = [category(m) for m in impacts.methods]
     rows = []
     for db in databases:
@@ -55,8 +61,15 @@ def regional_table(databases, impacts, markets, electricity_prices, prices, base
                                 scenario=scenario, country=country)
                     for name, value in zip(categories, impacts.of_flows(flows, electricity=market)):
                         rows.append({**base, "indicator": name, "impact": value})
-                    cost = consumable_cost(flows, prices, electricity_price=electricity_prices[country])
-                    rows.append({**base, "indicator": COST_COLUMN, "impact": cost})
+                    consumable = consumable_cost(flows, prices, electricity_price=electricity_prices[country])
+                    if country not in wages and labour_hours(process, scenario):
+                        no_wage.add(country)
+                    personnel = personnel_cost(process, scenario, wages.get(country))
+                    for name, value in cost_values(consumable, personnel).items():
+                        rows.append({**base, "indicator": name, "impact": value})
+    if no_wage:
+        print(f"WARNING: no labour cost for {', '.join(sorted(no_wage))}. "
+              "Their personnel costs and nominal OPEX are NaN (no data).")
     return pd.DataFrame(rows)
 
 

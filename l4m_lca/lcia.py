@@ -6,24 +6,27 @@ from pathlib import Path
 import pandas as pd
 
 from .constants import SCENARIOS
+from .costs import CONSUMABLE_COLUMN, cost_values, personnel_cost
 from .impacts import consumable_cost, electricity_kwh, foreground_flows
 from .project import category
 
 INDEX = ["Database", "Process", "Key", "Scenario"]
 ELECTRICITY_COLUMN = "Electricity Consumption (kWh)"
-COST_COLUMN = "Consumable costs (EUR)"
+COST_COLUMN = CONSUMABLE_COLUMN   # old name, kept for the notebooks that import it
 
 
-def scenario_table(databases, impacts, prices, scenarios=SCENARIOS, foreground=None):
-    """Impacts, electricity and consumable cost of each process in each scenario.
+def scenario_table(databases, impacts, prices, scenarios=SCENARIOS, foreground=None, wage=None):
+    """Impacts, electricity and costs of each process in each scenario.
 
     Args:
         databases: Brightway databases whose processes are calculated.
         impacts: a BackgroundImpacts object.
         prices: {activity key: EUR per unit} for the consumable cost.
         foreground: database names to walk through (default: the names of `databases`).
+        wage: labour cost (EUR/h) for the personnel cost. A process without labour hours costs 0.
 
     Returns one row per process and scenario. The impact columns have the category names.
+    The cost columns are the consumable costs, the personnel costs and the nominal OPEX (their sum).
     """
     foreground = set(foreground or [db.name for db in databases])
     unpriced = set()
@@ -35,7 +38,8 @@ def scenario_table(databases, impacts, prices, scenarios=SCENARIOS, foreground=N
                 row = {"Database": db.filename, "Process": process["name"], "Key": process.key[1], "Scenario": scenario}
                 row.update(zip((category(m) for m in impacts.methods), impacts.of_flows(flows)))
                 row[ELECTRICITY_COLUMN] = electricity_kwh(flows)
-                row[COST_COLUMN] = consumable_cost(flows, prices, warn=unpriced)
+                row.update(cost_values(consumable_cost(flows, prices, warn=unpriced),
+                                       personnel_cost(process, scenario, wage)))
                 rows.append(row)
     for name in sorted(unpriced):
         print(f"WARNING: no price for {name!r}. Its cost is 0.")

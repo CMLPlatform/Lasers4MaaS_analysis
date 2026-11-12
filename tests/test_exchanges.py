@@ -46,6 +46,30 @@ def test_joining_minimum_is_shortest_time_at_lowest_power():
         assert low <= high
 
 
+def test_joining_laser_efficiency_divides_joining_power_only():
+    params = {**HEAT_EXCHANGER_SOA, "laser_efficiency": 0.34}
+    amounts = joining_amounts(params)
+    t_min, t_max = 42.9 / 0.014, 42.9 / 0.012
+    assert amounts["electricity"] == pytest.approx(((1.4 / 0.34 + 21.7) * t_min / 3600,
+                                                    (1.5 / 0.34 + 21.7) * t_max / 3600))
+    assert amounts["gas"] == joining_amounts(HEAT_EXCHANGER_SOA)["gas"]
+
+
+def test_joining_laser_efficiency_range():
+    # minimum electricity uses the highest efficiency, maximum the lowest
+    params = {**HEAT_EXCHANGER_SOA, "laser_efficiency": {"min": 0.3, "max": 0.4}}
+    low, high = joining_amounts(params)["electricity"]
+    t_min, t_max = 42.9 / 0.014, 42.9 / 0.012
+    assert (low, high) == pytest.approx(((1.4 / 0.4 + 21.7) * t_min / 3600,
+                                         (1.5 / 0.3 + 21.7) * t_max / 3600))
+
+
+@pytest.mark.parametrize("efficiency", [0, -0.1, 1.2])
+def test_joining_laser_efficiency_rejects_invalid(efficiency):
+    with pytest.raises(ValueError):
+        joining_amounts({**HEAT_EXCHANGER_SOA, "laser_efficiency": efficiency})
+
+
 def test_joining_exchanges():
     exchanges = joining_exchanges("db", "Heat exchanger", HEAT_EXCHANGER_SOA, ELEC, GAS)
     assert exchanges[0] == {"input": ("db", "Heat exchanger"), "amount": 1, "type": "production"}
@@ -57,6 +81,23 @@ def test_joining_processes_names():
     data = joining_processes("db", {"Fuel tank": HEAT_EXCHANGER_SOA}, {"Fuel tank": "TIG"}, ELEC, GAS)
     assert data[("db", "Fuel tank")]["name"] == "Fuel tank joined with TIG"
     assert technology_of("Fuel tank joined with TIG") == "TIG"
+
+
+def test_joining_gas_selected_per_use_case():
+    gases = {"argon": GAS, "nitrogen": ("ei", "n2")}
+    brazing = {**HEAT_EXCHANGER_SOA, "gas": "nitrogen"}
+    assert joining_exchanges("db", "a", brazing, ELEC, gases)[2]["input"] == ("ei", "n2")
+    assert joining_exchanges("db", "b", HEAT_EXCHANGER_SOA, ELEC, gases)[2]["input"] == GAS
+
+
+def test_joining_filler_wire():
+    filler = ("ei", "wire")
+    with_filler = {**HEAT_EXCHANGER_SOA, "filler_kg": {"min": 0.0765, "max": 0.0765}}
+    exchanges = joining_exchanges("db", "a", with_filler, ELEC, GAS, filler)
+    assert exchanges[3]["input"] == filler and exchanges[3]["amount"] == pytest.approx(0.0765)
+    assert len(joining_exchanges("db", "b", HEAT_EXCHANGER_SOA, ELEC, GAS, filler)) == 3
+    with pytest.raises(ValueError):
+        joining_exchanges("db", "c", with_filler, ELEC, GAS)
 
 
 def test_tank_heat_loss():

@@ -137,7 +137,9 @@ def cumulative_regional(workflows, reg_joining, reg_prepost, scenario="amount"):
         prepost = pd.concat(prepost).groupby(level=[0, 1]).sum() if prepost else pd.Series(dtype=float)
 
         for process, grp in reg_joining[reg_joining["key"] == product].groupby("process", sort=False):
-            total = grp.groupby(["country", "indicator"])["impact"].sum().add(prepost, fill_value=0.0)
+            # NaN (no data, e.g. no labour cost for a country) stays NaN; a missing pre/post row counts as 0
+            joined = grp.groupby(["country", "indicator"])["impact"].sum(min_count=1)
+            total = joined + prepost.reindex(joined.index, fill_value=0.0)
             parts.append(total.rename("impact").reset_index().assign(product=product, technology=technology_of(process)))
     return pd.concat(parts, ignore_index=True)
 

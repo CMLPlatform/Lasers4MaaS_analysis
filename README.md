@@ -16,7 +16,9 @@ joining_task.ipynb ─┐  results/*_LCIA_results.json
                     ├─> results/regional_*.csv      ─> workflow_assembly.ipynb
 pre_post.ipynb ─────┘
 
-L4M_R&D.ipynb        (independent)
+rd_tests.ipynb       ─> RD_validation_tests database ─> L4M_R&D.ipynb
+                     (new BAFU project: run L4M_R&D.ipynb once first, to relink the packages;
+                      it stops before the R&D build because RD_validation_tests is missing)
 database_explorer.ipynb (independent)
 background_comparison.ipynb (after the 3 notebooks above ran with both backgrounds)
 ```
@@ -27,8 +29,10 @@ background_comparison.ipynb (after the 3 notebooks above ran with both backgroun
 
 | `BACKGROUND` | Project | Database | Results |
 |---|---|---|---|
-| `"ecoinvent"` (default) | `Lasers4MaaS` | `ecoinvent-3.12-cutoff` | `results/` |
+| `"ecoinvent"` | `Lasers4MaaS` | `ecoinvent-3.12-cutoff` | `results/` |
 | `"bafu"` | `Lasers4MaaS_BAFU` | `BAFU-2026` | `results/bafu/` |
+
+Each notebook has its own default value of `BACKGROUND`. Now, `joining_task`, `workflow_assembly` and `L4M_R&D` use `"bafu"`, and `pre_post` uses `"ecoinvent"`. Check the value before you run a notebook. `workflow_assembly` reads the result files of the same background, so run the 3 linked notebooks with the same value.
 
 The profiles are in `l4m_lca/constants.py` (`BACKGROUNDS`). The activity names of each background are parameters in the notebooks.
 
@@ -36,7 +40,7 @@ The profiles are in `l4m_lca/constants.py` (`BACKGROUNDS`). The activity names o
 
 BAFU-2026 is the free LCI database of the Swiss Federal Administration (EcoSpold v1, exported by openLCA, ecoinvent v2 names). Cite it as "Life Cycle Inventory database of the Swiss Federal Administration, BAFU:2026".
 
-To import it, run `python -m l4m_lca.bafu` one time (optional argument: the folder of the EcoSpold files). The import copies `Lasers4MaaS` to `Lasers4MaaS_BAFU` (for the EF 3.1 methods) and imports BAFU there. `l4m_lca/bafu.py` repairs the openLCA export:
+To import it, run `python -m l4m_lca.bafu` one time (optional argument: the folder of the EcoSpold files; the default is `DEFAULT_ECOSPOLD_DIR` in `l4m_lca/bafu.py`). The import copies `Lasers4MaaS` to `Lasers4MaaS_BAFU` (for the EF 3.1 methods) and imports BAFU there. `l4m_lca/bafu.py` repairs the openLCA export:
 
 - It adds the EcoSpold01 namespace and normalises the timestamps, dates and empty attributes, then parses without schema validation.
 - It maps the openLCA compartments and the old flow names to `ecoinvent-3.12-biosphere`: renames after ecoinvent 3.3, synonyms, ionic forms ("Mercury" → "Mercury II"), water kg → m³, and the parent compartment as a fallback.
@@ -55,8 +59,8 @@ Unit processes of the joining step. Functional unit: 1 joined unit.
 
 | | |
 |---|---|
-| **Parameters** | Joining parameters per use case and technology (power, speed, joint length, gas flow, as min/max ranges), the SoA technology of each use case, `COST_FACTORS`, the background activities and the regional electricity prices. |
-| **Processing** | Writes the `State_of_the_Art` and `Dynamic_Beam_Shaping` databases. Calculates the impacts for the minimum, amount and maximum scenarios, and the consumable costs. The regional analysis replaces the RER electricity with the market of each EU member state. |
+| **Parameters** | Joining parameters per use case and technology (power, speed, joint length, gas flow, as min/max ranges; optional `"gas"` (argon or nitrogen, default argon), `"filler_kg"` and `"operators"` (default 1)), the SoA technology of each use case, `COST_FACTORS` (electricity at the Eurostat RER price), the background activities, the regional electricity prices and the labour costs per country (`LABOUR_COST_FILE`: sheet `labour_cost` of `Input_data/country_data.xlsx`, Eurostat 2025, manufacturing). |
+| **Processing** | Writes the `State_of_the_Art` and `Dynamic_Beam_Shaping` databases. Calculates the impacts for the minimum, amount and maximum scenarios, and 3 cost indicators: consumable costs, personnel costs (labour hours = joining time x operators, x labour cost per hour) and nominal OPEX (consumable + personnel). The regional analysis replaces the RER electricity with the market of each EU member state, and the EU27 labour cost with the labour cost of each country. Countries without a Eurostat labour cost (NL, BE) get NaN personnel costs and OPEX. |
 | **Outputs** | The 2 databases. `results/State_of_the_Art_Dynamic_Beam_Shaping_LCIA_results.csv` and `.json`. `results/regional_joining.csv`. Bar charts and regional maps. |
 
 ### `pre_post.ipynb`
@@ -75,7 +79,7 @@ Adds up material, pre-joining, joining and post-joining for each product and joi
 |---|---|
 | **Parameters** | `PRODUCT_WORKFLOWS` (material, enabled steps and part weights of each product), `MATERIAL_MARKETS`, `SCENARIO`, `MATERIAL_CASE` and `INCLUDE_MATERIAL`. |
 | **Inputs** | The result files of `joining_task.ipynb` and `pre_post.ipynb`. |
-| **Outputs** | `results/Material_production_LCIA_results.json`. Stacked bar charts per product. Cumulative regional maps (without the material stage). |
+| **Outputs** | `results/Material_production_LCIA_results.json`. Stacked bar charts per product. A table of the consumable costs, personnel costs and nominal OPEX per stage. Cumulative regional maps (without the material stage). Only the joining step has personnel costs now. |
 
 `INCLUDE_MATERIAL = False` (the current value) removes the material production stage from the workflow table and the bar charts. The notebook still calculates and saves the material results. Set it to `True` to add the material stage.
 
@@ -84,9 +88,18 @@ Footprint of 1 set of optimised welding parameters per use case (Fusion welding,
 
 | | |
 |---|---|
-| **Parameters** | `DBS_ENERGY_FACTOR`, `OPTIMIZATION_KWH`, `RD_SCENARIOS` (placeholders), the codes of the saved processes, and the plot groups. |
-| **Inputs** | `databases/L4M_database.bw2package`, `CT-scan test.bw2package` and `Metallurgic test (CIVAN).bw2package`. The notebook imports them only if the project does not have them. The packages link to ecoinvent. With `BACKGROUND = "bafu"`, the notebook relinks their ecoinvent inputs to BAFU with `BAFU_LINKS`. Tissue paper has the proxy "Kraft paper, bleached". The BAFU aluminium scrap carries its transport burden, but the ecoinvent cut-off scrap has no burden. The notebook then checks that the packages use only the selected background. |
+| **Parameters** | `DBS_ENERGY_FACTOR`, `OPTIMIZATION_KWH`, `CT_SCAN_KW` and `CT_SCAN_H` (CT scan = scanner power x scan time), `VALIDATION_TESTS` (D13.1 tests per prototype round and use case), `RD_SCENARIOS` (placeholders), the codes of the saved processes, and the plot groups. |
+| **Inputs** | `databases/L4M_database.bw2package`, `CT-scan test.bw2package` and `Metallurgic test (CIVAN).bw2package`. The notebook imports them only if the project does not have them. `L4M system` links to the CT-scan package, so the notebook imports it only to import `L4M system`. It then removes that link from `CT-scan X-ray` and deletes the CT-scan package from the project. The `RD_validation_tests` database of `rd_tests.ipynb` (run it first, with the same background). The packages link to ecoinvent. With `BACKGROUND = "bafu"`, the notebook relinks their ecoinvent inputs to BAFU with `BAFU_LINKS`. Tissue paper has the proxy "Kraft paper, bleached". The BAFU aluminium scrap carries its transport burden, but the ecoinvent cut-off scrap has no burden. The notebook then checks that the packages use only the selected background. |
 | **Outputs** | The `L4M_RD_parameter_sets` database. A stacked bar chart. A Sankey diagram and regional maps (set `SHOW_SANKEY` or `SHOW_REGIONAL` to `True`). The notebook checks all totals against `bw2calc`. |
+
+### `rd_tests.ipynb`
+Unit processes of the R&D validation tests of D13.1: battery cooling plate (leak tightness, macrography seam analysis, burst pressure, pressure cycle and thermal shock tests) and heat exchanger prototype (cleaning, resistance spot welding, pickling and electropolishing, quality test). Functional unit: 1 test of 1 component.
+
+| | |
+|---|---|
+| **Parameters** | `ESTIMATES`: min/max ranges of the equipment power, durations, volumes and consumables. D13.1 gives the procedures but no amounts, so most values are engineering estimates, marked in the comments, to be replaced by partner data. `FLOWS`: background activities of each background. |
+| **Processing** | Writes the `RD_validation_tests` database. The macrography copies the direct inputs of the metallographic steps of the CIVAN package per specimen. A background dataset that is not found is reported with candidates and not modelled. |
+| **Outputs** | `results/RD_validation_tests_LCIA_results.csv` and `.json`. `L4M_R&D.ipynb` links the processes into its prototype rounds (`VALIDATION_TESTS`). |
 
 ### `database_explorer.ipynb`
 Interactive browser of a Brightway database. Click an input, an output or a consumer to open that process.
@@ -103,9 +116,11 @@ Ratios BAFU / ecoinvent of the joining, pre/post and material results, the impac
 | `ranges` | Min/max ranges and the exchanges made from them. |
 | `joining`, `prepost` | Exchange builders of the joining and pre/post processes. |
 | `impacts` | The LCIA engine (see below). |
+| `costs` | Cost indicators (consumable, personnel, nominal OPEX), labour hours, labour costs per country. |
 | `lcia`, `regional` | Scenario result tables, regional tables, export. |
 | `workflow` | Assembly per product, with or without the material stage. |
 | `rd` | Product systems of the R&D study. |
+| `rdtests` | Unit processes of the R&D validation tests (energy and consumable estimates). |
 | `bafu`, `compare` | Import of BAFU-2026 (`python -m l4m_lca.bafu`), comparison of 2 backgrounds. |
 | `plots`, `explorer` | Interactive figures. |
 
@@ -136,9 +151,10 @@ The unit tests need no Brightway project. The `brightway` tests use the `Lasers4
 
 These folders are not in git. They hold the data that the notebooks use.
 
-- `results/`: LCIA outputs and report figures. `results/.cache` is no longer used.
+- `results/`: LCIA outputs of the ecoinvent background, and the R&D export (`L4M_RD_results.csv`, `L4M_RD_top_inputs.csv`). The model assumptions are in Annex A of the D14.1 LCA results text. `results/bafu/` has the BAFU outputs and `unlinked_exchanges.csv`. `results/archive/` has old spreadsheets. `results/.cache` is no longer used.
 - `databases/`: Brightway database exports (`.bw2package`).
 - `Input_data/`, `data_collection/`: source spreadsheets and cost plots.
+- `Diagrams/`: process diagrams of the R&D study (`L4M_RD_parameter_sets.md`, `L4M_RD_process_connections.md`), their PNG images in `rendered/`, and old diagrams in `archive/`.
 
 ## Setup
 

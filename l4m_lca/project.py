@@ -44,6 +44,18 @@ def ensure_package(db_name, package_file, force=False):
     print(f"{db_name}: imported {len(bd.Database(db_name))} activities from {package_file}")
 
 
+def drop_inputs_from(db_name, source):
+    """Delete the exchanges of database `db_name` whose input is in database `source`.
+
+    Returns the number of deleted exchanges. A second call deletes nothing.
+    """
+    doomed = [e for act in bd.Database(db_name) for e in act.exchanges()
+              if e["type"] != "production" and e["input"][0] == source]
+    for e in doomed:
+        e.delete()
+    return len(doomed)
+
+
 def check_links(db_names):
     """Raise UnknownObject if an exchange links to a missing activity. Then process the databases."""
     for name in db_names:

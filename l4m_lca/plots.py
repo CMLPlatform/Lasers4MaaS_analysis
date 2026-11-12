@@ -17,6 +17,71 @@ from .constants import EU27
 from .project import short
 
 GRID = "#e6e9ec"
+INK = "#1d2421"
+
+# Accessible colours (validated for colour-vision deficiency on a white background) and textures.
+# Colour gives the group (technology or process stage); a texture separates items with the same colour,
+# so that no figure relies on colour alone.
+TECH_COLORS = {"Dynamic Beam Shaping": "#2a78d6", "standard laser": "#eb6834", "TIG": "#eda100",
+               "controlled atmosphere brazing": "#e87ba4"}
+FALLBACK_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6", "#e34948"]
+PATTERNS = ["", "/", ".", "x", "\\", "+", "-", "|"]
+SEQ_ORANGE = [[0, "#fde3d3"], [0.5, "#eb6834"], [1, "#7a2c0c"]]
+SEQ_BLUE = [[0, "#cde2fb"], [0.5, "#3987e5"], [1, "#0d366b"]]
+DIVERGING = [[0, "#1c5cab"], [0.5, "#f2f2f0"], [1, "#b23a12"]]
+
+
+def pattern(shape):
+    """Marker pattern of a bar: a light texture in white over the bar colour."""
+    return dict(shape=shape, fgcolor="white", fgopacity=0.75, size=9, solidity=0.3)
+
+
+def label_positions(x, y, near=0.09):
+    """Text position of each point label, away from its nearest neighbour, so labels do not overlap.
+
+    `near` is the distance (as a share of the axis ranges) below which two points are neighbours.
+    """
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    sx = (x.max() - x.min()) or 1.0
+    sy = (y.max() - y.min()) or 1.0
+    u, v = (x - x.min()) / sx, (y - y.min()) / sy
+    out = []
+    for i in range(len(u)):
+        d = np.hypot(u - u[i], v - v[i])
+        d[i] = np.inf
+        j = int(np.argmin(d)) if len(d) > 1 else i
+        if j == i or d[j] > near:
+            out.append("top center")
+        elif abs(u[j] - u[i]) > abs(v[j] - v[i]):
+            out.append("middle left" if u[j] > u[i] else "middle right")
+        else:
+            out.append("bottom center" if v[j] > v[i] else "top center")
+    return out
+
+
+def for_print(fig, width=1000, height=None, base=18):
+    """Resize a figure and its text for a report page (text width about 16 cm).
+
+    Sets every font to at least `base` - 2 px, so that the text stays at 8 pt or more when the
+    figure fills the text width.
+    """
+    fig = go.Figure(fig)
+    fig.update_layout(width=width, height=height or fig.layout.height, font=dict(size=base, color=INK),
+                      legend=dict(font=dict(size=base - 1)), hoverlabel=dict(font_size=base - 2))
+    if fig.layout.title and fig.layout.title.text:
+        fig.update_layout(title_font_size=base + 2)
+    fig.update_xaxes(tickfont_size=base - 2, title_font_size=base - 1)
+    fig.update_yaxes(tickfont_size=base - 2, title_font_size=base - 1)
+    fig.update_annotations(font_size=base)
+    for t in fig.data:
+        if getattr(t, "textfont", None) is not None and t.type in ("scatter", "bar"):
+            t.textfont.size = base - 2
+        if t.type == "choropleth":
+            t.colorbar.tickfont.size = base - 2
+            t.colorbar.title.font.size = base - 2
+        if t.type == "scatter" and t.marker is not None and t.marker.size:
+            t.marker.size = max(t.marker.size, 10)
+    return fig
 WIDE = widgets.Layout(width="420px")
 STYLE = {"description_width": "90px"}
 
@@ -43,7 +108,9 @@ def scenario_bars(table, use_cases, databases, units, technology_of, indicators)
     `table` is the result of lcia.scenario_table. `databases` are database names.
     """
     techs = sorted({technology_of(p) for p in table["Process"]})
-    colors = {t: px.colors.qualitative.D3[i % 10] for i, t in enumerate(techs)}
+    others = iter(c for c in FALLBACK_COLORS if c not in TECH_COLORS.values())
+    colors = {t: TECH_COLORS.get(t) or next(others) for t in techs}
+    hatch = {t: "" if "dynamic" in t.lower() else "/" for t in techs}  # DBS solid, state of the art hatched
 
     def stats(use_case, db_name, indicator):
         rows = table[(table["Key"] == use_case) & table["Database"].str.startswith(db_name)]
@@ -66,9 +133,11 @@ def scenario_bars(table, use_cases, databases, units, technology_of, indicators)
             s = stats(use_case, db_name, indicators[0])
             tech = s[0] if s else ""
             fig.add_trace(go.Bar(
-                x=[wrap(tech, 16)], y=[0], width=0.55, name=tech, marker_color=colors.get(tech),
+                x=[wrap(tech, 16)], y=[0], width=0.55, name=tech,
+                marker=dict(color=colors.get(tech), pattern=pattern(hatch.get(tech, "")),
+                            line=dict(color=colors.get(tech), width=1)),
                 legendgroup=tech, showlegend=tech not in shown,
-                error_y=dict(type="data", symmetric=False, array=[0], arrayminus=[0], thickness=1.5, width=5),
+                error_y=dict(type="data", symmetric=False, array=[0], arrayminus=[0], thickness=1.5, width=6, color=INK),
                 customdata=[[0, 0]],
                 hovertemplate="<b>%{fullData.name}</b><br>Value: %{y:.4g}<br>Min: %{customdata[0]:.4g}"
                               "<br>Max: %{customdata[1]:.4g}<extra></extra>",
@@ -77,10 +146,10 @@ def scenario_bars(table, use_cases, databases, units, technology_of, indicators)
             slots.append((len(fig.data) - 1, use_case, db_name))
     fig.update_layout(template="plotly_white", height=330 * n_rows + 120, width=1000, bargap=0.3,
                       legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.08, yanchor="top"),
-                      margin=dict(l=70, r=30, t=100, b=90), font=dict(size=12))
-    fig.update_yaxes(gridcolor=GRID, title_font_size=10, exponentformat="e")
-    fig.update_xaxes(tickfont_size=10, tickangle=0)
-    fig.update_annotations(font_size=12)
+                      margin=dict(l=70, r=30, t=100, b=90), font=dict(size=14, color=INK))
+    fig.update_yaxes(gridcolor=GRID, title_font_size=13, exponentformat="e")
+    fig.update_xaxes(tickfont_size=13, tickangle=0)
+    fig.update_annotations(font_size=14)
 
     def update(indicator):
         with fig.batch_update():
@@ -143,23 +212,24 @@ def regional_explorer(table, filters, units, title, baseline="RER", countries=EU
         fig.add_trace(go.Choropleth(
             locations=iso3, z=[0] * len(codes), text=codes, hovertemplate=hover,
             colorbar=dict(x=x, y=bar_y, len=bar_len, thickness=14 if scatter_on_top else 12, outlinewidth=0,
-                          tickfont=dict(size=10), title=dict(font=dict(size=11))),
+                          tickfont=dict(size=12), title=dict(font=dict(size=12))),
             marker=dict(line=dict(color="white", width=0.5))), row=map_row, col=col)
     fig.add_trace(go.Scatter(
         x=[0] * len(codes), y=[0] * len(codes), mode="markers+text", text=codes, textposition="top center",
-        textfont=dict(size=10), marker=dict(size=9, color="#1f77b4", line=dict(color="white", width=1)),
+        textfont=dict(size=12, color=INK), marker=dict(size=10, color="#2a78d6", line=dict(color="white", width=1.5)),
         hovertemplate="<b>%{text}</b><br>A: %{x:.4g}<br>B: %{y:.4g}<extra></extra>"), row=xy_row, col=1)
     fig.add_trace(go.Scatter(
-        x=[0], y=[0], mode="markers+text", text=[baseline], textposition="bottom center", textfont=dict(size=10),
-        marker=dict(size=13, symbol="diamond", color="#d62728", line=dict(color="white", width=1)),
+        x=[0], y=[0], mode="markers+text", text=[baseline], textposition="middle right",
+        textfont=dict(size=12, color=INK, weight="bold"),
+        marker=dict(size=14, symbol="diamond", color=INK, line=dict(color="white", width=1.5)),
         hovertemplate=f"<b>{baseline} baseline</b><br>A: %{{x:.4g}}<br>B: %{{y:.4g}}<extra></extra>"),
         row=xy_row, col=1)
     fig.update_geos(scope="europe", fitbounds="locations", showframe=False, showcountries=True,
                     countrycolor="#c4cad0", showland=True, landcolor="#eceff1", showocean=False,
                     showlakes=False, bgcolor="rgba(0,0,0,0)")
-    fig.update_layout(template="plotly_white", height=height, width=width, showlegend=False, font=dict(size=12),
+    fig.update_layout(template="plotly_white", height=height, width=width, showlegend=False, font=dict(size=14, color=INK),
                       margin=dict(l=70, r=90, t=70, b=50) if scatter_on_top else dict(l=60, r=30, t=60, b=50))
-    fig.update_annotations(font_size=13)
+    fig.update_annotations(font_size=15)
     fig.update_xaxes(zeroline=False, gridcolor=GRID)
     fig.update_yaxes(zeroline=False, gridcolor=GRID)
     a_title = 1 if scatter_on_top else 0
@@ -177,14 +247,16 @@ def regional_explorer(table, filters, units, title, baseline="RER", countries=EU
         (za, ra, ua), (zb, rb, ub) = series(w_a.value), series(w_b.value)
         pct = w_view.value != "Absolute"
         with fig.batch_update():
-            for trace, z, u, scale in ((fig.data[0], za, ua, "YlOrRd"), (fig.data[1], zb, ub, "GnBu")):
+            for trace, z, u, scale in ((fig.data[0], za, ua, SEQ_ORANGE), (fig.data[1], zb, ub, SEQ_BLUE)):
                 m = max(abs(z).max(), 1e-12)
                 trace.z = z
-                trace.colorscale = "RdBu_r" if pct else scale
+                trace.colorscale = DIVERGING if pct else scale
                 trace.zmin, trace.zmax = (-m, m) if pct else (None, None)
                 trace.colorbar.title.text = u
             fig.data[2].x, fig.data[2].y = za, zb
             fig.data[3].x, fig.data[3].y = [ra], [rb]
+            pos = label_positions(np.append(za, ra), np.append(zb, rb))
+            fig.data[2].textposition, fig.data[3].textposition = pos[:-1], pos[-1]
             # explicit ranges (with the baseline point), so that no point falls outside the axes
             for axis, vals, ref in ((fig.layout.xaxis, za, ra), (fig.layout.yaxis, zb, rb)):
                 lo, hi = min(vals.min(), ref), max(vals.max(), ref)
@@ -239,19 +311,29 @@ def _follow_legend(fig, panels):
     rescale()
 
 
-# Colour of each workflow step: material green, pre-joining blues, joining orange, post-joining violets.
-# Steps that never occur for the same material share a shade.
+# Colour of each workflow stage (material yellow, pre-joining blue, joining orange, post-joining aqua)
+# and a texture per step within the stage. 
 STEP_COLORS = {
-    ("mat", "material production"): "#2a9d6f",
+    ("mat", "material production"): "#eda100",
     ("pre", "alkaline_degreasing"): "#2a78d6",
-    ("pre", "mechanical_treatment"): "#6fa3e6",
-    ("pre", "machining"): "#b3d0f2",
+    ("pre", "mechanical_treatment"): "#2a78d6",
+    ("pre", "machining"): "#2a78d6",
     ("join", "joining"): "#eb6834",
-    ("post", "chemical_etching"): "#4b3bb5",
-    ("post", "pickling"): "#4b3bb5",
-    ("post", "conversion_coating"): "#8576e0",
-    ("post", "passivation"): "#8576e0",
-    ("post", "grinding_polishing"): "#c4bcf3",
+    ("post", "chemical_etching"): "#1baf7a",
+    ("post", "pickling"): "#1baf7a",
+    ("post", "conversion_coating"): "#1baf7a",
+    ("post", "passivation"): "#1baf7a",
+    ("post", "grinding_polishing"): "#1baf7a",
+}
+STEP_PATTERNS = {
+    ("pre", "alkaline_degreasing"): "",
+    ("pre", "mechanical_treatment"): "/",
+    ("pre", "machining"): ".",
+    ("post", "chemical_etching"): "",
+    ("post", "pickling"): "x",
+    ("post", "conversion_coating"): "-",
+    ("post", "passivation"): "/",
+    ("post", "grinding_polishing"): ".",
 }
 STAGE_RANK = {"mat": -1, "pre": 0, "join": 100, "post": 200}
 
@@ -293,7 +375,8 @@ def workflow_bars(table, stage_titles, default_indicator, scenario):
                 share = np.nan_to_num(vals / totals.values * 100)
                 fig.add_trace(go.Bar(
                     x=x, y=vals, name=pretty(step),
-                    marker=dict(color=STEP_COLORS.get((stage, step), "#999999"), line=dict(color="white", width=1.5)),
+                    marker=dict(color=STEP_COLORS.get((stage, step), "#999999"), line=dict(color="white", width=1.5),
+                                pattern=pattern(STEP_PATTERNS.get((stage, step), ""))),
                     legendgroup=f"{stage}:{step}", legendrank=step_rank.get((stage, step), 999),
                     showlegend=(stage, step) not in shown,
                     customdata=np.column_stack([share, names]),
@@ -306,7 +389,7 @@ def workflow_bars(table, stage_titles, default_indicator, scenario):
                 bars.append(len(fig.data) - 1)
             fig.add_trace(go.Scatter(x=x, y=totals.values, mode="text", text=[f"{t:.3g}" for t in totals],
                                      textposition="top center", showlegend=False, hoverinfo="skip",
-                                     textfont=dict(size=12)), row=r + 1, col=c + 1)
+                                     textfont=dict(size=13, color=INK)), row=r + 1, col=c + 1)
             panels.append({"row": r + 1, "col": c + 1, "bars": bars, "total": len(fig.data) - 1})
             top = totals.max()
             fig.update_yaxes(title_text=unit if c == 0 else None, rangemode="tozero",
@@ -322,8 +405,8 @@ def workflow_bars(table, stage_titles, default_indicator, scenario):
                           title=dict(text=f"{indicator}<br><sup>{scenario} scenario - stacked contribution "
                                           "per process step</sup>", x=0.01),
                           legend=dict(groupclick="togglegroup", orientation="v", x=1.02, y=1, tracegroupgap=12),
-                          margin=dict(t=100, r=40), hoverlabel=dict(bgcolor="white"), font=dict(size=12))
-        fig.update_annotations(font_size=14)
+                          margin=dict(t=100, r=40), hoverlabel=dict(bgcolor="white"), font=dict(size=14, color=INK))
+        fig.update_annotations(font_size=15)
         fw = go.FigureWidget(fig)
         _follow_legend(fw, panels)
         out.clear_output(wait=True)
@@ -344,14 +427,22 @@ def grouped_stacked_bars(stack, indicators, default, units, process_types, title
         stack: function(indicator) -> DataFrame (rows: (use case, scenario), columns: process labels).
         process_types: {type: {process label: colour}} (legend order).
         title: function(indicator) -> figure title.
+
+    One checkbox per use case includes or excludes its bars. Processes with no impact in the
+    included use cases are left out of the legend.
     """
     fig = go.FigureWidget()
+    use_cases = list(dict.fromkeys(uc for uc, _ in stack(default).index))
+    w_uc = {uc: widgets.Checkbox(value=True, description=uc, indent=False, layout=widgets.Layout(width="auto"))
+            for uc in use_cases}
 
     def draw(_=None):
         d = stack(w.value)
         unknown = [c for c in d.columns if not any(c in procs for procs in process_types.values())]
         if unknown:
             raise ValueError(f"Processes without a type in process_types: {unknown}")
+        d = d[[uc in {u for u, box in w_uc.items() if box.value} for uc, _ in d.index]]
+        d = d.loc[:, (d != 0).any()]
         unit = units.get(w.value, "")
         x = [[uc for uc, _ in d.index], [sc for _, sc in d.index]]
         tot = d.sum(axis=1)
@@ -359,19 +450,20 @@ def grouped_stacked_bars(stack, indicators, default, units, process_types, title
             fig.data = []
             for ptype, procs in process_types.items():
                 first = True
-                for proc, color in procs.items():
+                for k, (proc, color) in enumerate(procs.items()):
                     if proc not in d.columns:
                         continue
                     fig.add_bar(x=x, y=d[proc], name=proc, legendgroup=ptype,
                                 legendgrouptitle_text=f"<b>{ptype}</b>" if first else None,
-                                marker=dict(color=color, line=dict(color="white", width=1)),
+                                marker=dict(color=color, line=dict(color="white", width=1),
+                                            pattern=pattern(PATTERNS[k % len(PATTERNS)])),
                                 customdata=(d[proc] / tot * 100),
                                 hovertemplate=f"<b>%{{x}}</b><br>{ptype}: {proc}<br>%{{y:.3g}} {unit} "
                                               "(%{customdata:.1f}% of total)<extra></extra>")
                     first = False
             fig.add_scatter(x=x, y=tot, mode="text", text=[f"{t:.3g}" for t in tot], textposition="top center",
                             showlegend=False, hoverinfo="skip")
-            fig.update_layout(barmode="relative", template="plotly_white", height=900, width=1260, font=dict(size=14),
+            fig.update_layout(barmode="relative", template="plotly_white", height=900, width=1260, font=dict(size=14, color=INK),
                               title=dict(text=title(w.value), x=0.01, font=dict(size=15)),
                               yaxis=dict(title=unit, gridcolor=GRID),
                               legend=dict(groupclick="toggleitem", tracegroupgap=14),
@@ -380,8 +472,11 @@ def grouped_stacked_bars(stack, indicators, default, units, process_types, title
 
     w = dropdown(indicators, "Indicator", default, width="520px", label_width="80px")
     w.observe(draw, names="value")
+    for box in w_uc.values():
+        box.observe(draw, names="value")
     draw()
-    return widgets.VBox([w, fig])
+    w_label = widgets.Label("Use cases:", layout=widgets.Layout(width="80px"))
+    return widgets.VBox([w, widgets.HBox([w_label, *w_uc.values()], layout=widgets.Layout(gap="16px")), fig])
 
 
 def sankey(links_of, systems, indicators, default, units, totals, root_name):

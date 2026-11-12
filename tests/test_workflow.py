@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from l4m_lca.rd import process_label
+from l4m_lca.rd import process_label, validation_test_sets
 from l4m_lca.workflow import cumulative_regional, mean_part_weight, workflow_table
 
 GWP = "climate change [kg CO2-Eq]"
@@ -79,3 +79,11 @@ def test_process_label():
     assert process_label("03_Laser welding", welds) == "Coupon joining"
     assert process_label("001_Pyshical_Cleaning", welds) == "Cleaning"
     assert process_label("04_Cutting", welds) == "Cutting (weld cross-sections)"
+
+
+def test_validation_test_sets_one_per_ten_prototypes():
+    assert validation_test_sets(50) == 5
+    assert validation_test_sets(20) == 2
+    assert validation_test_sets(15) == 2   # rounded up: no part sets
+    assert validation_test_sets(0) == 0
+    assert validation_test_sets(30, prototypes_per_set=5) == 6

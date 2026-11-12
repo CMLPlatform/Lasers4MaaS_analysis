@@ -1,9 +1,11 @@
 """Product systems of the L4M R&D study (reference flow: 1 set of optimised welding parameters).
 
 Each use case has 2 scenarios. A scenario is a sequence of rounds. Each round has
-coupon welds, prototype welds, digital lab runs, optimization runs and verifications.
+coupon welds, prototype welds, digital lab runs, optimization runs, CT-scan verifications
+and sets of validation tests (the D13.1 tests of the prototype).
 """
 
+import math
 import re
 
 import bw2data as bd
@@ -11,10 +13,24 @@ import bw2data as bd
 DBS = "Dynamic Beam Shaping"
 
 
-def make_round(coupon=0, prototype=0, digital=0, optimization=0, verification=1):
-    """Contents of one R&D round (counts per set of parameters)."""
+def validation_test_sets(prototypes, prototypes_per_set=10):
+    """Number of sets of validation tests for a number of prototype welds.
+
+    One set of tests covers `prototypes_per_set` prototypes. The result is rounded up:
+    a lab cannot do part of a set.
+    """
+    if prototypes_per_set <= 0:
+        raise ValueError("prototypes_per_set must be positive")
+    return math.ceil(prototypes / prototypes_per_set)
+
+
+def make_round(coupon=0, prototype=0, digital=0, optimization=0, verification=1, tests=0):
+    """Contents of one R&D round (counts per set of parameters).
+
+    `verification` is the number of CT scans. `tests` is the number of sets of validation tests.
+    """
     return dict(coupon=coupon, prototype=prototype, digital=digital,
-                optimization=optimization, verification=verification)
+                optimization=optimization, verification=verification, tests=tests)
 
 
 class RDBuilder:
@@ -75,19 +91,28 @@ class RDBuilder:
                           "exchanges": exchanges}
         return key
 
-    def electricity_only(self, code, name, product, electricity, kwh):
+    def electricity_only(self, code, name, product, electricity, kwh, location="GLO"):
         """Process with one electricity input (for example an optimization run)."""
         key = (self.name, code)
-        self.data[key] = {"name": name, "reference product": product, "unit": "unit", "location": "GLO",
+        self.data[key] = {"name": name, "reference product": product, "unit": "unit", "location": location,
                           "exchanges": [{"input": key, "amount": 1, "type": "production"},
                                         {"input": electricity.key, "amount": kwh, "type": "technosphere"}]}
+        return key
+
+    def test_set(self, use_case, tests):
+        """Set of validation tests of a use case: {test process key: number of tests}."""
+        key = (self.name, f"{use_case} | validation tests")
+        self.data[key] = {"name": "Validation tests", "reference product": "set of validation tests",
+                          "unit": "unit", "location": "GLO",
+                          "exchanges": [{"input": key, "amount": 1, "type": "production"}]
+                          + [{"input": k, "amount": n, "type": "technosphere"} for k, n in tests.items() if n]}
         return key
 
     def system(self, use_case, scenario, rounds, inputs):
         """Product system of one use case and scenario, made of its rounds.
 
         `inputs` maps a round field (coupon, prototype, digital, optimization,
-        verification) to the key of the process that one count of it uses.
+        verification, tests) to the key of the process that one count of it uses.
         """
         round_keys = []
         for round_name, counts in rounds.items():
@@ -111,17 +136,21 @@ class RDBuilder:
         return db
 
 
-def build_rd_database(name, background_name, l4m, metallurgic, ct_scan, use_cases, scenarios,
-                      dbs_energy_factor, optimization_kwh, include_material=True):
+def build_rd_database(name, background_name, l4m, metallurgic, use_cases, scenarios,
+                      dbs_energy_factor, optimization_kwh, ct_scan_kwh, validation_tests=None,
+                      include_material=True):
     """Write the R&D database and return {(use case, scenario): product system}.
 
     Args:
-        l4m, metallurgic, ct_scan: {label: activity} of the imported packages.
+        l4m, metallurgic: {label: activity} of the imported packages.
         use_cases: {use case: its welding process}.
         scenarios: {use case: {scenario: {"joining": technology, "rounds": {round: make_round(...)}}}}.
         dbs_energy_factor: factor on the electricity of the DBS joining steps.
         optimization_kwh: electricity of one optimization run.
-        include_material: False removes the material inputs (aluminium of the coupons and verifications).
+        ct_scan_kwh: electricity of one CT scan (scanner power x scan time).
+        validation_tests: {use case: {test process key: tests per set}}. A use case without tests
+            gets no "tests" input, whatever its rounds say.
+        include_material: False removes the material inputs (aluminium of the coupons).
     """
     b = RDBuilder(name, background_name, include_material)
 
@@ -136,20 +165,21 @@ def build_rd_database(name, background_name, l4m, metallurgic, ct_scan, use_case
     }
     dbs_welding = {uc: b.copy(p, "_DBS", DBS, dbs_energy_factor) for uc, p in use_cases.items()}
 
-    # Verification of the joined welds (no extra weld or cleaning): cutting -> polishing -> etching -> CT-scan
-    ct_cut = ct_scan["04_Cutting"]
-    ct_weld = next(e.input for e in ct_cut.exchanges()
-                   if e["type"] == "technosphere" and e.input["database"] == ct_cut["database"])
-    polishing, etching = metallurgic["07_Polishing"], metallurgic["08_Etching"]
-    ver_cut = b.copy(ct_cut, "_ver", "Verification", drop={ct_weld.key}, sourcing=True)
-    ver_polish = b.copy(polishing, "_ver", "Verification", extra=[(ver_cut, 6)])
-    ver_etch = b.copy(etching, "_ver", "Verification", replace={polishing.key: ver_polish})
-    ver_ct = b.copy(l4m["CT-scan X-ray"], "_ver", "Verification", replace={ct_cut.key: ver_etch})
+    # Verification of the joined welds: CT scan only (non-destructive), with the electricity of the
+    # L4M "CT-scan X-ray" process (GB grid) and the amount ct_scan_kwh
+    ct = l4m["CT-scan X-ray"]
+    ct_electricity = next(e.input for e in ct.exchanges()
+                          if e["type"] == "technosphere" and "electricity" in e.input["name"].lower())
+    ver_ct = b.electricity_only("ct_scan", "CT-scan X-ray", ct.get("reference product") or "Tested coupon",
+                                ct_electricity, ct_scan_kwh, location=ct["location"])
 
     # Optimization of the welding parameters: electricity only
     electricity = next(e.input for e in l4m["Platform"].exchanges() if e["type"] == "technosphere")
     optimization = b.electricity_only("optimization", "Optimization", "optimization of the welding parameters",
                                       electricity, optimization_kwh)
+
+    # One set of validation tests per use case (processes of the RD_validation_tests database)
+    test_sets = {uc: b.test_set(uc, tests) for uc, tests in (validation_tests or {}).items() if tests}
 
     keys = {}
     for uc, scs in scenarios.items():
@@ -159,7 +189,12 @@ def build_rd_database(name, background_name, l4m, metallurgic, ct_scan, use_case
                       "prototype": dbs_welding[uc] if dbs else use_cases[uc].key,
                       "digital": l4m["Digital lab processes"].key,
                       "optimization": optimization, "verification": ver_ct}
-            keys[uc, sc] = b.system(uc, sc, spec["rounds"], inputs)
+            rounds = spec["rounds"]
+            if uc in test_sets:
+                inputs["tests"] = test_sets[uc]
+            else:
+                rounds = {r: {**counts, "tests": 0} for r, counts in rounds.items()}
+            keys[uc, sc] = b.system(uc, sc, rounds, inputs)
     db = b.write()
     return {k: db.get(key[1]) for k, key in keys.items()}
 
