@@ -9,8 +9,10 @@ import math
 import re
 
 import bw2data as bd
+import pandas as pd
 
-DBS = "Dynamic Beam Shaping"
+from .constants import DBL_TECHNOLOGY as DBS   # the L4M joining technology
+from .impacts import is_electricity
 
 
 def validation_test_sets(prototypes, prototypes_per_set=10):
@@ -241,3 +243,42 @@ def process_label(name, use_case_weld_names):
         return "Cutting (weld cross-sections)"
     label = re.sub(r"^\d+_(Physical_|Pyshical_)?", "", name)
     return "Coupon joining" if label == "Laser welding" else label
+
+
+def contribution_rows(contribs, weld_names, indicators):
+    """Long table of the contributions: one row per product system and background flow.
+
+    Args:
+        contribs: {(use case, scenario): list of (flow, impact array)}, from BackgroundImpacts.by_flow.
+        weld_names: names of the use-case weld processes (they get the label "Prototype joining").
+        indicators: indicator names, in the order of the impact arrays (one column each).
+
+    Columns: use_case, scenario, process (plot label of the direct user), background_input, amount,
+    unit, electricity_kwh, then one column per indicator.
+    """
+    names = {}
+    rows = []
+    for (uc, sc), contributions in contribs.items():
+        for flow, values in contributions:
+            key = flow.path[-1]
+            if key not in names:
+                names[key] = bd.get_activity(key)["name"]
+            electric = flow.kind == "technosphere" and is_electricity(flow.node)
+            rows.append({"use_case": uc, "scenario": sc, "process": process_label(names[key], weld_names),
+                         "background_input": f"{flow.node['name']} [{flow.node.get('location', '')}]",
+                         "amount": flow.amount, "unit": flow.node.get("unit", ""),
+                         "electricity_kwh": flow.amount if electric else 0.0,
+                         **dict(zip(indicators, values))})
+    return rows
+
+
+def stack_table(rows, indicator):
+    """Impact per product system caused directly by each process.
+
+    Rows: (use case, scenario). Columns: process labels, in the order of first use.
+    """
+    out = {}
+    for row in rows:
+        cell = out.setdefault((row["use_case"], row["scenario"]), {})
+        cell[row["process"]] = cell.get(row["process"], 0.0) + row[indicator]
+    return pd.DataFrame(out).T.fillna(0.0)

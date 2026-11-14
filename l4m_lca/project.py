@@ -1,8 +1,16 @@
 """Brightway project setup, impact method selection and activity lookup."""
 
+import os
+from dataclasses import dataclass
+
 import bw2data as bd
 import bw2io as bi
+from bw2data.errors import UnknownObject
 from bw2io import BW2Package
+
+from .constants import BACKGROUNDS
+
+BACKGROUND_VARIABLE = "L4M_BACKGROUND"   # environment variable that selects the background
 
 # EF 3.1 indicators that the notebooks report (matched as substrings of the method name)
 DEFAULT_INDICATORS = [
@@ -13,6 +21,25 @@ DEFAULT_INDICATORS = [
     "photochemical oxidant formation: human health",
     "human toxicity: carcinogenic",
 ]
+
+
+@dataclass(frozen=True)
+class Background:
+    """Settings of one background database (see constants.BACKGROUNDS)."""
+
+    name: str                  # "ecoinvent" or "bafu"
+    project: str               # Brightway project
+    database: str              # background database in that project
+    results: str               # results folder
+    country_electricity: str   # name of the electricity market of each country
+
+
+def select_background(default="ecoinvent"):
+    """Background settings. The environment variable L4M_BACKGROUND overrides `default`."""
+    name = os.environ.get(BACKGROUND_VARIABLE) or default
+    if name not in BACKGROUNDS:
+        raise ValueError(f"Unknown background {name!r}: use one of {sorted(BACKGROUNDS)}")
+    return Background(name=name, **BACKGROUNDS[name])
 
 
 def open_project(project, background="ecoinvent-3.12-cutoff", version="3.12", system_model="cutoff"):
@@ -126,12 +153,21 @@ def short(name):
     return name.split(" (EF")[0]
 
 
-def find_activity(database, name, location, reference_product=None):
+def find_activity(database, name, location, reference_product=None, suggest=False):
     """Return the one activity with this exact name and location (and reference product).
 
     Raises UnknownObject if no activity matches, MultipleResults if more than one matches.
+    With `suggest`, a missing activity gives None and a printed list of candidates instead.
     """
     filters = {"database": database, "name": name, "location": location}
     if reference_product is not None:
         filters["product"] = reference_product
-    return bd.get_node(**filters)
+    try:
+        return bd.get_node(**filters)
+    except UnknownObject:
+        if not suggest:
+            raise
+    words = name.replace("market group for ", "").replace("market for ", "").split(",")[0]
+    hits = bd.Database(database).search(words, limit=8)
+    print(f"NOT FOUND: {(name, location)}. Candidates: {[(a['name'], a['location']) for a in hits]}")
+    return None

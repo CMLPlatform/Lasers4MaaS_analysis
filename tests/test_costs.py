@@ -76,3 +76,21 @@ def test_cumulative_regional_keeps_missing_labour_cost():
     out = cumulative_regional(workflows, joining, prepost).set_index("country")["impact"]
     assert out["RER"] == 10.0
     assert math.isnan(out["NL"])
+
+
+def test_gb_values():
+    from l4m_lca.constants import EU27, EU27_GB, GB_ELEC_PRICE_2025S1, GB_LABOUR_COST_2025
+    assert EU27_GB == {**EU27, "GB": "GBR"}
+    assert GB_ELEC_PRICE_2025S1["GB"] == pytest.approx(0.26542 / 0.84232, abs=1e-4)   # DESNZ, ECB H1 2025
+    assert GB_LABOUR_COST_2025["GB"] == pytest.approx(21.8 * 116.1182 / 79.4559 / 0.85661, abs=0.05)
+
+
+def test_prepost_labour():
+    from l4m_lca.prepost import prepost_labour
+    assert prepost_labour({"time_min": {"min": 6, "max": 30}}) == pytest.approx(
+        {"minimum": 0.1, "amount": 0.3, "maximum": 0.5})
+    assert prepost_labour({"time_min": {"min": 6, "max": 30}}, operator_share=0.25)["maximum"] == pytest.approx(0.125)
+    assert prepost_labour({"machining_time_min": {"min": 1, "max": 5}})["maximum"] == pytest.approx(5 / 60)
+    assert prepost_labour({"electricity_kwh": 1.0}) is None
+    with pytest.raises(ValueError):
+        prepost_labour({"time_min": 5}, operator_share=1.5)

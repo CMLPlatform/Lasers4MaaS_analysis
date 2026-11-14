@@ -7,4 +7,3 @@ results/
 .vscode
 __pycache__/
 .pytest_cache/
-.xlsx

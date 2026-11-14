@@ -1,8 +1,8 @@
-"""Helpers and exchange builders of the R&D test processes (l4m_lca.rdtests)."""
+"""Helpers and exchange builders of the R&D test processes (l4m_lca.validation_tests)."""
 
 import pytest
 
-from l4m_lca.rdtests import (add, background_inputs_per_unit, burst_test_time_h, cooling_kwh, cycle_time_h, div,
+from l4m_lca.validation_tests import (add, background_inputs_per_unit, burst_test_time_h, cooling_kwh, cycle_time_h, div,
                              free_air_nm3, heating_kwh, mul, power_time_kwh, rd_test_exchanges, rd_test_processes, rng)
 from fakes import Node, process
 

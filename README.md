@@ -1,7 +1,7 @@
 # Lasers4MaaS – LCA models
 
 Brightway 2.5 life cycle assessment (LCA) of laser joining and of the processes before and after joining.
-The study compares State of the Art (SoA) joining with Dynamic Beam Shaping (DBS) for 5 use cases: Heat exchanger, Fuel tank, Heterogeneous pipe, Freeze Dryers Shelf and Battery cooling plate.
+The study compares State of the Art (SoA) joining with Dynamic Beam Laser (DBL) for 5 use cases: Heat exchanger, Fuel tank, Heterogeneous pipe, Freeze Dryers Shelf and Battery cooling plate.
 
 ## Structure
 
@@ -25,16 +25,16 @@ background_comparison.ipynb (after the 3 notebooks above ran with both backgroun
 
 ## Background databases
 
-`joining_task`, `pre_post`, `workflow_assembly` and `L4M_R&D` run with one of 2 background databases. Set `BACKGROUND` in the notebook, or the environment variable `L4M_BACKGROUND`.
+`joining_task`, `pre_post`, `workflow_assembly` and `L4M_R&D` run with one of 2 background databases. Set it in the first parameter cell (`BG = select_background("ecoinvent")`), or with the environment variable `L4M_BACKGROUND`. The environment variable overrides the notebook value.
 
 | `BACKGROUND` | Project | Database | Results |
 |---|---|---|---|
 | `"ecoinvent"` | `Lasers4MaaS` | `ecoinvent-3.12-cutoff` | `results/` |
 | `"bafu"` | `Lasers4MaaS_BAFU` | `BAFU-2026` | `results/bafu/` |
 
-Each notebook has its own default value of `BACKGROUND`. Now, `joining_task`, `workflow_assembly` and `L4M_R&D` use `"bafu"`, and `pre_post` uses `"ecoinvent"`. Check the value before you run a notebook. `workflow_assembly` reads the result files of the same background, so run the 3 linked notebooks with the same value.
+Each notebook has its own default value. Now, all notebooks use `"ecoinvent"`. Check the value before you run a notebook. `workflow_assembly` reads the result files of the same background, so run the 3 linked notebooks with the same value.
 
-The profiles are in `l4m_lca/constants.py` (`BACKGROUNDS`). The activity names of each background are parameters in the notebooks.
+The profiles are in `l4m_lca/constants.py` (`BACKGROUNDS`). The database names, the result file stems and the package files are also in `l4m_lca/constants.py`, so all notebooks use the same names. The activity names of each background are parameters in the notebooks.
 
 ### BAFU-2026
 
@@ -60,8 +60,8 @@ Unit processes of the joining step. Functional unit: 1 joined unit.
 | | |
 |---|---|
 | **Parameters** | Joining parameters per use case and technology (power, speed, joint length, gas flow, as min/max ranges; optional `"gas"` (argon or nitrogen, default argon), `"filler_kg"` and `"operators"` (default 1)), the SoA technology of each use case, `COST_FACTORS` (electricity at the Eurostat RER price), the background activities, the regional electricity prices and the labour costs per country (`LABOUR_COST_FILE`: sheet `labour_cost` of `Input_data/country_data.xlsx`, Eurostat 2025, manufacturing). |
-| **Processing** | Writes the `State_of_the_Art` and `Dynamic_Beam_Shaping` databases. Calculates the impacts for the minimum, amount and maximum scenarios, and 3 cost indicators: consumable costs, personnel costs (labour hours = joining time x operators, x labour cost per hour) and nominal OPEX (consumable + personnel). The regional analysis replaces the RER electricity with the market of each EU member state, and the EU27 labour cost with the labour cost of each country. Countries without a Eurostat labour cost (NL, BE) get NaN personnel costs and OPEX. |
-| **Outputs** | The 2 databases. `results/State_of_the_Art_Dynamic_Beam_Shaping_LCIA_results.csv` and `.json`. `results/regional_joining.csv`. Bar charts and regional maps. |
+| **Processing** | Writes the `State_of_the_Art` and `Dynamic_Beam_Laser` databases. Calculates the impacts for the minimum, amount and maximum scenarios, and 3 cost indicators: consumable costs, personnel costs (labour hours = joining time x operators, x labour cost per hour) and nominal OPEX (consumable + personnel). The regional analysis replaces the RER electricity with the market of each EU member state and the United Kingdom (GB), and the EU27 labour cost with the labour cost of each country. Eurostat has no recent UK data: the GB values come from DESNZ (electricity) and Eurostat 2016 + ONS growth (labour cost), see `l4m_lca/constants.py`. Countries without a Eurostat labour cost (NL, BE) get NaN personnel costs and OPEX. |
+| **Outputs** | The 2 databases. `results/State_of_the_Art_Dynamic_Beam_Laser_LCIA_results.csv` and `.json`. `results/regional_joining.csv`. Bar charts and regional maps. |
 
 ### `pre_post.ipynb`
 Unit processes of the chemical and mechanical treatments before and after joining, per material. Functional unit: 1 execution of the process.
@@ -69,7 +69,7 @@ Unit processes of the chemical and mechanical treatments before and after joinin
 | | |
 |---|---|
 | **Parameters** | `CHEM_PREPOST_PARAMS`, `MECH_PREPOST_PARAMS`, tank sizes, U-values, bath and heater assumptions, the background activities (`FLOWS`, with the proxies of the mechanical flows) and `COST_FACTORS` (indicative placeholder prices, except electricity). |
-| **Processing** | Writes the `Chemical_Pre_and_Post_processes` and `Mechanical_Pre_and_Post_processes` databases. Calculates the scenario impacts, costs and the regional analysis, as in `joining_task.ipynb`. |
+| **Processing** | Writes the `Chemical_Pre_and_Post_processes` and `Mechanical_Pre_and_Post_processes` databases. Calculates the scenario impacts, the 3 cost indicators and the regional analysis, as in `joining_task.ipynb`. Labour hours per execution = process time x operator share (`CHEM_OPERATOR_SHARE` = 0.25 for chemical baths, `MECH_OPERATOR_SHARE` = 1 for mechanical treatments, `OPERATOR_SHARE` to override per process). |
 | **Outputs** | The 2 databases. `results/Chemical_Pre_and_Post_processes_Mechanical_Pre_and_Post_processes_LCIA_results.csv` and `.json`. `results/regional_prepost.csv`. Regional maps. |
 
 ### `workflow_assembly.ipynb`
@@ -79,12 +79,12 @@ Adds up material, pre-joining, joining and post-joining for each product and joi
 |---|---|
 | **Parameters** | `PRODUCT_WORKFLOWS` (material, enabled steps and part weights of each product), `MATERIAL_MARKETS`, `SCENARIO`, `MATERIAL_CASE` and `INCLUDE_MATERIAL`. |
 | **Inputs** | The result files of `joining_task.ipynb` and `pre_post.ipynb`. |
-| **Outputs** | `results/Material_production_LCIA_results.json`. Stacked bar charts per product. A table of the consumable costs, personnel costs and nominal OPEX per stage. Cumulative regional maps (without the material stage). Only the joining step has personnel costs now. |
+| **Outputs** | `results/Material_production_LCIA_results.json`. Stacked bar charts per product. A table of the consumable costs, personnel costs and nominal OPEX per stage. Cumulative regional maps (without the material stage). |
 
 `INCLUDE_MATERIAL = False` (the current value) removes the material production stage from the workflow table and the bar charts. The notebook still calculates and saves the material results. Set it to `True` to add the material stage.
 
 ### `L4M_R&D.ipynb`
-Footprint of 1 set of optimised welding parameters per use case (Fusion welding, Pharma welding, Battery cooling welding). It compares an SoA R&D scenario with an L4M-enabled R&D scenario (fewer physical experiments, digital lab runs, joining with DBS). See `Diagrams/L4M_RD_parameter_sets.md`.
+Footprint of 1 set of optimised welding parameters per use case (Fusion welding, Pharma welding, Battery cooling welding). It compares an SoA R&D scenario with an L4M-enabled R&D scenario (fewer physical experiments, digital lab runs, joining with DBL). See `Diagrams/L4M_RD_parameter_sets.md`.
 
 | | |
 |---|---|
@@ -111,16 +111,16 @@ Ratios BAFU / ecoinvent of the joining, pre/post and material results, the impac
 
 | Module | Contents |
 |---|---|
-| `project` | Open the project, import packages, relink package inputs to another background (`relink_background`), select the EF 3.1 methods, find activities by exact name and location. |
-| `constants` | EU27 country codes, Eurostat electricity prices, scenario names. |
+| `project` | Select the background (`select_background`), open the project, import packages, relink package inputs to another background (`relink_background`), select the EF 3.1 methods, find activities by exact name and location (optionally with a list of candidates when there is no match). |
+| `constants` | Database names, result file stems, package files, EU27 (+ GB) country codes, Eurostat electricity prices, the GB electricity price and labour cost (DESNZ, ONS, ECB; sources in the comments), regional settings, scenario names. |
 | `ranges` | Min/max ranges and the exchanges made from them. |
 | `joining`, `prepost` | Exchange builders of the joining and pre/post processes. |
 | `impacts` | The LCIA engine (see below). |
-| `costs` | Cost indicators (consumable, personnel, nominal OPEX), labour hours, labour costs per country. |
+| `costs` | Cost indicators (consumable, personnel, nominal OPEX), labour hours, labour costs per country (`regional_labour_costs`: Eurostat + GB). |
 | `lcia`, `regional` | Scenario result tables, regional tables, export. |
-| `workflow` | Assembly per product, with or without the material stage. |
-| `rd` | Product systems of the R&D study. |
-| `rdtests` | Unit processes of the R&D validation tests (energy and consumable estimates). |
+| `workflow` | Assembly per product, with or without the material stage, and the cost table. |
+| `rd` | Product systems of the R&D study, and their contribution tables. |
+| `validation_tests` | Unit processes of the R&D validation tests (energy and consumable estimates). |
 | `bafu`, `compare` | Import of BAFU-2026 (`python -m l4m_lca.bafu`), comparison of 2 backgrounds. |
 | `plots`, `explorer` | Interactive figures. |
 

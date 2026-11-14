@@ -8,11 +8,14 @@ import pytest
 
 bd = pytest.importorskip("bw2data")
 
-PROJECT = "Lasers4MaaS"
-ECOINVENT = "ecoinvent-3.12-cutoff"
-FOREGROUND = ["State_of_the_Art", "Dynamic_Beam_Shaping", "Chemical_Pre_and_Post_processes",
-              "Mechanical_Pre_and_Post_processes", "L4M system", "Mettalurgic test (CIVAN)",
-              "RD_validation_tests", "L4M_RD_parameter_sets"]
+from l4m_lca.constants import (BACKGROUNDS, CHEM_PREPOST_DATABASE, DBL_DATABASE, EU27_GB, L4M_DATABASE,
+                               MECH_PREPOST_DATABASE, METALLURGIC_DATABASE, RD_DATABASE, RD_TESTS_DATABASE,
+                               SOA_DATABASE)
+
+PROJECT = BACKGROUNDS["ecoinvent"]["project"]
+ECOINVENT = BACKGROUNDS["ecoinvent"]["database"]
+UNIT_PROCESS_DATABASES = [SOA_DATABASE, DBL_DATABASE, CHEM_PREPOST_DATABASE, MECH_PREPOST_DATABASE]
+FOREGROUND = UNIT_PROCESS_DATABASES + [L4M_DATABASE, METALLURGIC_DATABASE, RD_TESTS_DATABASE, RD_DATABASE]
 
 pytestmark = pytest.mark.brightway
 
@@ -33,10 +36,9 @@ def setup():
 
 def products(foreground):
     for name in sorted(foreground):
-        if name == "L4M_RD_parameter_sets":
+        if name == RD_DATABASE:
             yield from (a for a in bd.Database(name) if a.get("reference product") == "1 set of optimised parameters")
-        elif name in ("State_of_the_Art", "Dynamic_Beam_Shaping", "Chemical_Pre_and_Post_processes",
-                      "Mechanical_Pre_and_Post_processes"):
+        elif name in UNIT_PROCESS_DATABASES:
             yield from bd.Database(name)
 
 
@@ -54,7 +56,7 @@ def test_engine_reproduces_bw2calc(setup):
 
 def test_joining_ranges_are_ordered(setup):
     from l4m_lca.impacts import scenario_amount
-    for name in ("State_of_the_Art", "Dynamic_Beam_Shaping"):
+    for name in (SOA_DATABASE, DBL_DATABASE):
         if name not in bd.databases:
             continue
         for act in bd.Database(name):
@@ -63,7 +65,6 @@ def test_joining_ranges_are_ordered(setup):
 
 
 def test_electricity_markets_exist(setup):
-    from l4m_lca.constants import EU27
     from l4m_lca.regional import electricity_markets
-    markets = electricity_markets(bd.Database(ECOINVENT), {**EU27, "GB": "GBR"})
+    markets = electricity_markets(bd.Database(ECOINVENT), EU27_GB)
     assert len(markets) == 28

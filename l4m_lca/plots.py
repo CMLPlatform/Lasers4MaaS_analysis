@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from IPython.display import display
 from plotly.subplots import make_subplots
 
-from .constants import EU27
+from .constants import DBL_TECHNOLOGY, EU27
 from .project import short
 
 GRID = "#e6e9ec"
@@ -22,7 +22,7 @@ INK = "#1d2421"
 # Accessible colours (validated for colour-vision deficiency on a white background) and textures.
 # Colour gives the group (technology or process stage); a texture separates items with the same colour,
 # so that no figure relies on colour alone.
-TECH_COLORS = {"Dynamic Beam Shaping": "#2a78d6", "standard laser": "#eb6834", "TIG": "#eda100",
+TECH_COLORS = {DBL_TECHNOLOGY: "#2a78d6", "standard laser": "#eb6834", "TIG": "#eda100",
                "controlled atmosphere brazing": "#e87ba4"}
 FALLBACK_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6", "#e34948"]
 PATTERNS = ["", "/", ".", "x", "\\", "+", "-", "|"]

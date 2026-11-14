@@ -3,9 +3,11 @@
 The functional unit of each process is 1 execution of the process.
 """
 
+from .costs import labour_range
 from .ranges import bounds, production, ranged_exchange
 
 WATER_HEAT_CAPACITY_J_PER_KG_K = 4186
+TIME_PARAMETERS = ("time_min", "machining_time_min")   # process time of one execution (min)
 
 
 def tank_heat_loss(volume_m3, fluid_temp_c, room_temp_c, u_value, time_hours=1.0, heater_efficiency=0.95):
@@ -88,6 +90,24 @@ def mechanical_exchanges(database_name, code, params, parameter_flows):
         low, high = bounds(value)
         exchanges.append(ranged_exchange(flow, low * factor, high * factor))
     return exchanges, ignored
+
+
+def prepost_labour(params, operator_share=1.0):
+    """Labour hours (minimum, amount, maximum) of one execution: process time x `operator_share`.
+
+    The process time is the first of `TIME_PARAMETERS` in `params` (minutes).
+    `operator_share` is the share of the process time that 1 operator works on the part:
+    1 = full attention (mechanical work), below 1 = the operator also does other work
+    (for example, a chemical bath only needs loading and unloading).
+    Returns None if `params` has no process time.
+    """
+    if not 0 <= operator_share <= 1:
+        raise ValueError(f"operator_share must be in [0, 1], not {operator_share!r}")
+    name = next((t for t in TIME_PARAMETERS if t in params), None)
+    if name is None:
+        return None
+    low, high = bounds(params[name])
+    return labour_range(low / 60 * operator_share, high / 60 * operator_share)
 
 
 def per_material(process_params):

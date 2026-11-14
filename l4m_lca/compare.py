@@ -1,5 +1,6 @@
 """Comparison of the results of two background databases (for example ecoinvent and BAFU)."""
 
+import warnings
 from pathlib import Path
 
 import pandas as pd
@@ -27,6 +28,13 @@ def compare(dir_a, dir_b, stem, label_a="ecoinvent", label_b="bafu", scenario="a
     file = f"{stem}_LCIA_results.json" if not stem.endswith(".json") else stem
     a = long_results(Path(dir_a) / file, label_a)
     b = long_results(Path(dir_b) / file, label_b)
+    # Compare only the indicators in both files (for example, one export can be older than a new cost column).
+    common = set(a["indicator"]) & set(b["indicator"])
+    dropped = sorted((set(a["indicator"]) | set(b["indicator"])) - common)
+    if dropped:
+        warnings.warn(f"{stem}: indicators not in both result sets are ignored: {dropped}", stacklevel=2)
+        a = a[a["indicator"].isin(common)]
+        b = b[b["indicator"].isin(common)]
     # Joining results share a Key (use case) between technologies, so the process name is part of the match.
     # Material results name the background market in Process, so they match on Key only.
     same_process = set(a["Process"]) == set(b["Process"])

@@ -149,3 +149,13 @@ def write_json(table, path):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(table.to_dict(orient="records"), f, indent=2)
+
+
+def cost_table(workflow, cost_columns):
+    """Costs per product and technology: one column per (cost indicator, stage), plus the total of each indicator."""
+    costs = workflow[workflow["indicator"].isin(cost_columns)]
+    table = costs.pivot_table(index=["product", "technology"], columns=["indicator", "stage"], values="value",
+                              aggfunc="sum", sort=False)
+    for col in cost_columns:
+        table[(col, "total")] = table[col].sum(axis=1)
+    return table[[k for col in cost_columns for k in table.columns if k[0] == col]]

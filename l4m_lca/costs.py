@@ -12,6 +12,8 @@ import math
 
 import pandas as pd
 
+from .constants import GB_LABOUR_COST_2025, LABOUR_COST_FILE, REGIONAL_BASELINE
+
 CONSUMABLE_COLUMN = "Consumable costs (EUR)"
 PERSONNEL_COLUMN = "Personnel costs (EUR)"
 OPEX_COLUMN = "Nominal OPEX (EUR)"
@@ -75,3 +77,11 @@ def read_labour_costs(path, sheet="labour_cost", baseline="RER", average="EU27_2
     if baseline not in out:
         raise ValueError(f"No {average!r} row in sheet {sheet!r} of {path}")
     return out
+
+
+def regional_labour_costs(path=LABOUR_COST_FILE, baseline=REGIONAL_BASELINE):
+    """Labour cost per hour of the EU27 countries, the EU27 average (`baseline`) and GB (EUR/h).
+
+    Eurostat values from `path`. GB is not in Eurostat after 2016: its value is in constants.py.
+    """
+    return {**read_labour_costs(path, baseline=baseline), **GB_LABOUR_COST_2025}
