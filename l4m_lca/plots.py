@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from IPython.display import display
 from plotly.subplots import make_subplots
 
-from .constants import DBL_TECHNOLOGY, EU27
+from .constants import EU27, L4M_SOLUTION_TECHNOLOGY
 from .project import short
 
 GRID = "#e6e9ec"
@@ -22,7 +22,7 @@ INK = "#1d2421"
 # Accessible colours (validated for colour-vision deficiency on a white background) and textures.
 # Colour gives the group (technology or process stage); a texture separates items with the same colour,
 # so that no figure relies on colour alone.
-TECH_COLORS = {DBL_TECHNOLOGY: "#2a78d6", "standard laser": "#eb6834", "TIG": "#eda100",
+TECH_COLORS = {L4M_SOLUTION_TECHNOLOGY: "#2a78d6", "standard laser": "#eb6834", "TIG": "#eda100",
                "controlled atmosphere brazing": "#e87ba4"}
 FALLBACK_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6", "#e34948"]
 PATTERNS = ["", "/", ".", "x", "\\", "+", "-", "|"]
@@ -110,7 +110,7 @@ def scenario_bars(table, use_cases, databases, units, technology_of, indicators)
     techs = sorted({technology_of(p) for p in table["Process"]})
     others = iter(c for c in FALLBACK_COLORS if c not in TECH_COLORS.values())
     colors = {t: TECH_COLORS.get(t) or next(others) for t in techs}
-    hatch = {t: "" if "dynamic" in t.lower() else "/" for t in techs}  # DBS solid, state of the art hatched
+    hatch = {t: "" if t == L4M_SOLUTION_TECHNOLOGY else "/" for t in techs}  # L4M-solution solid, state of the art hatched
 
     def stats(use_case, db_name, indicator):
         rows = table[(table["Key"] == use_case) & table["Database"].str.startswith(db_name)]
@@ -365,7 +365,7 @@ def workflow_bars(table, stage_titles, default_indicator, scenario):
                 index="technology", columns=["stage", "step"], values="value", aggfunc="sum", sort=False)
             sub = sub[sorted(sub.columns, key=lambda k: STAGE_RANK[k[0]])]
             sub = sub.loc[:, (sub != 0).any(axis=0) | (sub.columns.get_level_values(0) == "join")]
-            sub = sub.iloc[sorted(range(len(sub)), key=lambda k: "dynamic" in sub.index[k].lower())]  # DBS on the right
+            sub = sub.iloc[sorted(range(len(sub)), key=lambda k: L4M_SOLUTION_TECHNOLOGY in sub.index[k])]  # L4M-solution on the right
             totals = sub.sum(axis=1)
             names = list(sub.index)
             x = [wrap(n) for n in names]

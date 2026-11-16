@@ -8,13 +8,13 @@ import pytest
 
 bd = pytest.importorskip("bw2data")
 
-from l4m_lca.constants import (BACKGROUNDS, CHEM_PREPOST_DATABASE, DBL_DATABASE, EU27_GB, L4M_DATABASE,
+from l4m_lca.constants import (BACKGROUNDS, CHEM_PREPOST_DATABASE, L4M_SOLUTION_DATABASE, EU27_GB, L4M_DATABASE,
                                MECH_PREPOST_DATABASE, METALLURGIC_DATABASE, RD_DATABASE, RD_TESTS_DATABASE,
                                SOA_DATABASE)
 
 PROJECT = BACKGROUNDS["ecoinvent"]["project"]
 ECOINVENT = BACKGROUNDS["ecoinvent"]["database"]
-UNIT_PROCESS_DATABASES = [SOA_DATABASE, DBL_DATABASE, CHEM_PREPOST_DATABASE, MECH_PREPOST_DATABASE]
+UNIT_PROCESS_DATABASES = [SOA_DATABASE, L4M_SOLUTION_DATABASE, CHEM_PREPOST_DATABASE, MECH_PREPOST_DATABASE]
 FOREGROUND = UNIT_PROCESS_DATABASES + [L4M_DATABASE, METALLURGIC_DATABASE, RD_TESTS_DATABASE, RD_DATABASE]
 
 pytestmark = pytest.mark.brightway
@@ -56,7 +56,7 @@ def test_engine_reproduces_bw2calc(setup):
 
 def test_joining_ranges_are_ordered(setup):
     from l4m_lca.impacts import scenario_amount
-    for name in (SOA_DATABASE, DBL_DATABASE):
+    for name in (SOA_DATABASE, L4M_SOLUTION_DATABASE):
         if name not in bd.databases:
             continue
         for act in bd.Database(name):

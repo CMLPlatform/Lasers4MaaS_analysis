@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from l4m_lca.constants import BACKGROUNDS, DBL_DATABASE, JOINING_STEM, SOA_DATABASE
+from l4m_lca.constants import BACKGROUNDS, L4M_SOLUTION_DATABASE, JOINING_STEM, SOA_DATABASE
 from l4m_lca.project import BACKGROUND_VARIABLE, select_background
 
 
@@ -20,7 +20,7 @@ def test_select_background_default_and_override(monkeypatch):
 
 
 def test_joining_stem_names_both_databases():
-    assert JOINING_STEM == f"{SOA_DATABASE}_{DBL_DATABASE}"
+    assert JOINING_STEM == f"{SOA_DATABASE}_{L4M_SOLUTION_DATABASE}"
 
 
 def test_cost_table_adds_totals():

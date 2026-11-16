@@ -25,7 +25,7 @@ def rows(process, key, values):
 @pytest.fixture
 def tables():
     joining = pd.DataFrame(rows("Tank joined with TIG", "Tank", {"minimum": 1, "amount": 2, "maximum": 3})
-                           + rows("Tank joined with DBS", "Tank", {"minimum": 0.5, "amount": 1, "maximum": 1.5}))
+                           + rows("Tank joined with L4M-solution", "Tank", {"minimum": 0.5, "amount": 1, "maximum": 1.5}))
     prepost = pd.DataFrame(rows("degreasing for steel", "degreasing_steel", {"amount": 0.1, "maximum": 0.2})
                            + rows("degreasing for aluminium", "degreasing_aluminium", {"amount": 9.0})
                            + rows("machining for steel", "machining_steel", {"amount": 5.0})
@@ -50,8 +50,8 @@ def test_workflow_table(tables, capsys):
 
 def test_workflow_table_scenario(tables):
     t = workflow_table(WORKFLOWS, *tables, case="prototype", scenario="maximum")
-    dbs = t[(t.technology == "DBS") & (t.indicator == GWP)].set_index("step")["value"]
-    assert dbs["joining"] == 1.5 and dbs["degreasing"] == 0.2 and dbs["material production"] == 8.0
+    l4m = t[(t.technology == "L4M-solution") & (t.indicator == GWP)].set_index("step")["value"]
+    assert l4m["joining"] == 1.5 and l4m["degreasing"] == 0.2 and l4m["material production"] == 8.0
 
 
 def test_workflow_table_without_material(tables):

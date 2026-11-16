@@ -1,7 +1,7 @@
 # Lasers4MaaS – LCA models
 
 Brightway 2.5 life cycle assessment (LCA) of laser joining and of the processes before and after joining.
-The study compares State of the Art (SoA) joining with Dynamic Beam Laser (DBL) for 5 use cases: Heat exchanger, Fuel tank, Heterogeneous pipe, Freeze Dryers Shelf and Battery cooling plate.
+The study compares State of the Art (SoA) joining with the Lasers4MaaS solution (L4M-solution) for 5 use cases: Heat exchanger, Fuel tank, Heterogeneous pipe, Freeze Dryers Shelf and Battery cooling plate.
 
 ## Structure
 
@@ -60,8 +60,8 @@ Unit processes of the joining step. Functional unit: 1 joined unit.
 | | |
 |---|---|
 | **Parameters** | Joining parameters per use case and technology (power, speed, joint length, gas flow, as min/max ranges; optional `"gas"` (argon or nitrogen, default argon), `"filler_kg"` and `"operators"` (default 1)), the SoA technology of each use case, `COST_FACTORS` (electricity at the Eurostat RER price), the background activities, the regional electricity prices and the labour costs per country (`LABOUR_COST_FILE`: sheet `labour_cost` of `Input_data/country_data.xlsx`, Eurostat 2025, manufacturing). |
-| **Processing** | Writes the `State_of_the_Art` and `Dynamic_Beam_Laser` databases. Calculates the impacts for the minimum, amount and maximum scenarios, and 3 cost indicators: consumable costs, personnel costs (labour hours = joining time x operators, x labour cost per hour) and nominal OPEX (consumable + personnel). The regional analysis replaces the RER electricity with the market of each EU member state and the United Kingdom (GB), and the EU27 labour cost with the labour cost of each country. Eurostat has no recent UK data: the GB values come from DESNZ (electricity) and Eurostat 2016 + ONS growth (labour cost), see `l4m_lca/constants.py`. Countries without a Eurostat labour cost (NL, BE) get NaN personnel costs and OPEX. |
-| **Outputs** | The 2 databases. `results/State_of_the_Art_Dynamic_Beam_Laser_LCIA_results.csv` and `.json`. `results/regional_joining.csv`. Bar charts and regional maps. |
+| **Processing** | Writes the `State_of_the_Art` and `L4M_solution` databases. Calculates the impacts for the minimum, amount and maximum scenarios, and 3 cost indicators: consumable costs, personnel costs (labour hours = joining time x operators, x labour cost per hour) and nominal OPEX (consumable + personnel). The regional analysis replaces the RER electricity with the market of each EU member state and the United Kingdom (GB), and the EU27 labour cost with the labour cost of each country. Eurostat has no recent UK data: the GB values come from DESNZ (electricity) and Eurostat 2016 + ONS growth (labour cost), see `l4m_lca/constants.py`. Countries without a Eurostat labour cost (NL, BE) get NaN personnel costs and OPEX. |
+| **Outputs** | The 2 databases. `results/State_of_the_Art_L4M_solution_LCIA_results.csv` and `.json`. `results/regional_joining.csv`. Bar charts and regional maps. |
 
 ### `pre_post.ipynb`
 Unit processes of the chemical and mechanical treatments before and after joining, per material. Functional unit: 1 execution of the process.
@@ -84,11 +84,11 @@ Adds up material, pre-joining, joining and post-joining for each product and joi
 `INCLUDE_MATERIAL = False` (the current value) removes the material production stage from the workflow table and the bar charts. The notebook still calculates and saves the material results. Set it to `True` to add the material stage.
 
 ### `L4M_R&D.ipynb`
-Footprint of 1 set of optimised welding parameters per use case (Fusion welding, Pharma welding, Battery cooling welding). It compares an SoA R&D scenario with an L4M-enabled R&D scenario (fewer physical experiments, digital lab runs, joining with DBL). See `Diagrams/L4M_RD_parameter_sets.md`.
+Footprint of 1 set of optimised welding parameters per use case (Fusion welding, Pharma welding, Battery cooling welding). It compares an SoA R&D scenario with an L4M-enabled R&D scenario (fewer physical experiments, digital lab runs, joining with the L4M-solution). See `Diagrams/L4M_RD_parameter_sets.md`.
 
 | | |
 |---|---|
-| **Parameters** | `DBS_ENERGY_FACTOR`, `OPTIMIZATION_KWH`, `CT_SCAN_KW` and `CT_SCAN_H` (CT scan = scanner power x scan time), `VALIDATION_TESTS` (D13.1 tests per prototype round and use case), `RD_SCENARIOS` (placeholders), the codes of the saved processes, and the plot groups. |
+| **Parameters** | `L4M_SOLUTION_ENERGY_FACTOR`, `OPTIMIZATION_KWH`, `CT_SCAN_KW` and `CT_SCAN_H` (CT scan = scanner power x scan time), `VALIDATION_TESTS` (D13.1 tests per prototype round and use case), `RD_SCENARIOS` (placeholders), the codes of the saved processes, and the plot groups. |
 | **Inputs** | `databases/L4M_database.bw2package`, `CT-scan test.bw2package` and `Metallurgic test (CIVAN).bw2package`. The notebook imports them only if the project does not have them. `L4M system` links to the CT-scan package, so the notebook imports it only to import `L4M system`. It then removes that link from `CT-scan X-ray` and deletes the CT-scan package from the project. The `RD_validation_tests` database of `rd_tests.ipynb` (run it first, with the same background). The packages link to ecoinvent. With `BACKGROUND = "bafu"`, the notebook relinks their ecoinvent inputs to BAFU with `BAFU_LINKS`. Tissue paper has the proxy "Kraft paper, bleached". The BAFU aluminium scrap carries its transport burden, but the ecoinvent cut-off scrap has no burden. The notebook then checks that the packages use only the selected background. |
 | **Outputs** | The `L4M_RD_parameter_sets` database. A stacked bar chart. A Sankey diagram and regional maps (set `SHOW_SANKEY` or `SHOW_REGIONAL` to `True`). The notebook checks all totals against `bw2calc`. |
 

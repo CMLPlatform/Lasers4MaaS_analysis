@@ -76,15 +76,15 @@ LABOUR_COST_FILE = "Input_data/country_data.xlsx"
 
 # Foreground databases that the notebooks write
 SOA_DATABASE = "State_of_the_Art"                       # joining_task.ipynb
-DBL_DATABASE = "Dynamic_Beam_Laser"                     # joining_task.ipynb
-DBL_TECHNOLOGY = "Dynamic Beam Laser"                   # technology of the DBL processes (joining and R&D)
+L4M_SOLUTION_DATABASE = "L4M_solution"                   # joining_task.ipynb
+L4M_SOLUTION_TECHNOLOGY = "L4M-solution"                 # Lasers4MaaS solution: technology of its processes (joining and R&D)
 CHEM_PREPOST_DATABASE = "Chemical_Pre_and_Post_processes"     # pre_post.ipynb
 MECH_PREPOST_DATABASE = "Mechanical_Pre_and_Post_processes"   # pre_post.ipynb
 RD_TESTS_DATABASE = "RD_validation_tests"               # rd_tests.ipynb
 RD_DATABASE = "L4M_RD_parameter_sets"                   # L4M_R&D.ipynb
 
 # Stems of the result files: lcia.export writes <stem>_LCIA_results.csv and .json
-JOINING_STEM = f"{SOA_DATABASE}_{DBL_DATABASE}"
+JOINING_STEM = f"{SOA_DATABASE}_{L4M_SOLUTION_DATABASE}"
 PREPOST_STEM = f"{CHEM_PREPOST_DATABASE}_{MECH_PREPOST_DATABASE}"
 MATERIAL_STEM = "Material_production"
 RD_TESTS_STEM = RD_TESTS_DATABASE

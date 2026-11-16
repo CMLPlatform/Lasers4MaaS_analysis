@@ -11,7 +11,7 @@ import re
 import bw2data as bd
 import pandas as pd
 
-from .constants import DBL_TECHNOLOGY as DBS   # the L4M joining technology
+from .constants import L4M_SOLUTION_TECHNOLOGY as L4M_SOLUTION   # the Lasers4MaaS joining technology
 from .impacts import is_electricity
 
 
@@ -139,7 +139,7 @@ class RDBuilder:
 
 
 def build_rd_database(name, background_name, l4m, metallurgic, use_cases, scenarios,
-                      dbs_energy_factor, optimization_kwh, ct_scan_kwh, validation_tests=None,
+                      l4m_solution_energy_factor, optimization_kwh, ct_scan_kwh, validation_tests=None,
                       include_material=True):
     """Write the R&D database and return {(use case, scenario): product system}.
 
@@ -147,7 +147,7 @@ def build_rd_database(name, background_name, l4m, metallurgic, use_cases, scenar
         l4m, metallurgic: {label: activity} of the imported packages.
         use_cases: {use case: its welding process}.
         scenarios: {use case: {scenario: {"joining": technology, "rounds": {round: make_round(...)}}}}.
-        dbs_energy_factor: factor on the electricity of the DBS joining steps.
+        l4m_solution_energy_factor: factor on the electricity of the L4M-solution joining steps.
         optimization_kwh: electricity of one optimization run.
         ct_scan_kwh: electricity of one CT scan (scanner power x scan time).
         validation_tests: {use case: {test process key: tests per set}}. A use case without tests
@@ -163,9 +163,9 @@ def build_rd_database(name, background_name, l4m, metallurgic, use_cases, scenar
     clean = b.copy(met_clean, "_svc", "Cleaning service", replace={met_cut.key: cut})
     coupon = {
         "Standard laser": b.copy(coupon_joining, "_std", "Standard laser", replace={met_clean.key: clean}),
-        DBS: b.copy(coupon_joining, "_DBS", DBS, dbs_energy_factor, replace={met_clean.key: clean}),
+        L4M_SOLUTION: b.copy(coupon_joining, "_L4M_solution", L4M_SOLUTION, l4m_solution_energy_factor, replace={met_clean.key: clean}),
     }
-    dbs_welding = {uc: b.copy(p, "_DBS", DBS, dbs_energy_factor) for uc, p in use_cases.items()}
+    l4m_solution_welding = {uc: b.copy(p, "_L4M_solution", L4M_SOLUTION, l4m_solution_energy_factor) for uc, p in use_cases.items()}
 
     # Verification of the joined welds: CT scan only (non-destructive), with the electricity of the
     # L4M "CT-scan X-ray" process (GB grid) and the amount ct_scan_kwh
@@ -186,9 +186,9 @@ def build_rd_database(name, background_name, l4m, metallurgic, use_cases, scenar
     keys = {}
     for uc, scs in scenarios.items():
         for sc, spec in scs.items():
-            dbs = spec["joining"] == DBS
-            inputs = {"coupon": coupon[DBS if dbs else "Standard laser"],
-                      "prototype": dbs_welding[uc] if dbs else use_cases[uc].key,
+            is_l4m_solution = spec["joining"] == L4M_SOLUTION
+            inputs = {"coupon": coupon[L4M_SOLUTION if is_l4m_solution else "Standard laser"],
+                      "prototype": l4m_solution_welding[uc] if is_l4m_solution else use_cases[uc].key,
                       "digital": l4m["Digital lab processes"].key,
                       "optimization": optimization, "verification": ver_ct}
             rounds = spec["rounds"]
@@ -202,13 +202,13 @@ def build_rd_database(name, background_name, l4m, metallurgic, use_cases, scenar
 
 
 def standard_welds_left(flows, use_cases):
-    """Names of standard-laser weld processes in the walked flows (none may remain in a DBS scenario)."""
+    """Names of standard-laser weld processes in the walked flows (none may remain in an L4M-solution scenario)."""
     welds = {p["name"] for p in use_cases.values()}
     names = set()
     for f in flows:
         for key in f.path:
             act = bd.get_activity(key)
-            if ("Laser welding" in act["name"] or act["name"] in welds) and act.get("technology") != DBS:
+            if ("Laser welding" in act["name"] or act["name"] in welds) and act.get("technology") != L4M_SOLUTION:
                 names.add(act["name"])
     return names
 
