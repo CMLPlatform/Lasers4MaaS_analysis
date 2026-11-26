@@ -1,0 +1,25 @@
+# Runtime dependencies of the l4m_lca package (Python >= 3.11).
+# Versions as in environment.yml (tested on 2026-11-06), except where marked.
+# Install: pip install -r requirements.txt
+# Notebooks and tests also need: ipykernel==7.3.0, pytest==9.2.0
+# Fast sparse solver for bw2calc (optional, needs SuiteSparse): conda install -c conda-forge scikit-umfpack=0.4.2
+
+# Brightway 2.5
+bw2data==4.7
+bw2calc==2.4.0
+bw2io==0.9.17
+bw_processing==1.6
+
+# Calculation and plots
+numpy==2.4.6
+pandas==3.0.5
+scipy==1.17.1
+plotly==7.1.0
+ipywidgets==8.1.9
+
+# Excel inputs (pandas.read_excel of Input_data/*.xlsx); not in environment.yml
+openpyxl==3.1.5
+
+# BAFU import (l4m_lca.bafu); also installed with bw2io, not in environment.yml
+lxml==6.1.3
+pyecospold==4.0.1

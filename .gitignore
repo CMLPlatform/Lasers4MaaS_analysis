@@ -1,9 +1,30 @@
+# Data folders: large, licensed (ecoinvent) or project-internal. See README "Untracked folders".
 data_collection/
-databases
-Diagrams
-Input_data
+databases/
+Diagrams/
+Input_data/
 results/
-.DS_Store
-.vscode
+
+# Generated files of the legacy script create_LCI.py
+prepostprocess_data.pkl
+prepostprocess_data.json
+
+# Python
 __pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Tests and notebooks
 .pytest_cache/
+.ipynb_checkpoints/
+
+# Editors and operating system
+.vscode/
+.idea/
+.DS_Store
+~$*

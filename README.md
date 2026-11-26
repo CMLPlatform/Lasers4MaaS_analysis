@@ -20,6 +20,7 @@ rd_tests.ipynb       ─> RD_validation_tests database ─> L4M_R&D.ipynb
                      (new BAFU project: run L4M_R&D.ipynb once first, to relink the packages;
                       it stops before the R&D build because RD_validation_tests is missing)
 database_explorer.ipynb (independent)
+production_costs.ipynb  (independent, no Brightway)
 background_comparison.ipynb (after the 3 notebooks above ran with both backgrounds)
 ```
 
@@ -78,8 +79,8 @@ Adds up material, pre-joining, joining and post-joining for each product and joi
 | | |
 |---|---|
 | **Parameters** | `PRODUCT_WORKFLOWS` (material, enabled steps and part weights of each product), `MATERIAL_MARKETS`, `SCENARIO`, `MATERIAL_CASE` and `INCLUDE_MATERIAL`. |
-| **Inputs** | The result files of `joining_task.ipynb` and `pre_post.ipynb`. |
-| **Outputs** | `results/Material_production_LCIA_results.json`. Stacked bar charts per product. A table of the consumable costs, personnel costs and nominal OPEX per stage. Cumulative regional maps (without the material stage). |
+| **Inputs** | The result files of `joining_task.ipynb` and `pre_post.ipynb`. The production costs of `Input_data/KPI_calculations.xlsx`. |
+| **Outputs** | `results/Material_production_LCIA_results.json`. Stacked bar charts per product. A table of the consumable costs, personnel costs and nominal OPEX per stage. Cumulative regional maps (without the material stage). A figure of the use cases with the GHG emissions of the joining stage (LCA, top) and the production costs (KPI calculations, bottom). |
 
 `INCLUDE_MATERIAL = False` (the current value) removes the material production stage from the workflow table and the bar charts. The notebook still calculates and saves the material results. Set it to `True` to add the material stage.
 
@@ -104,6 +105,9 @@ Unit processes of the R&D validation tests of D13.1: battery cooling plate (leak
 ### `database_explorer.ipynb`
 Interactive browser of a Brightway database. Click an input, an output or a consumer to open that process.
 
+### `production_costs.ipynb`
+Total production costs per item of each use case, SoA and L4M, by cost type (labour, consumables + energy, material, maintenance, depreciation). Reads the cost breakdown of `Input_data/KPI_calculations.xlsx` (sheets `Comp-usecase1` and `Comp-usecase2`) with `costs.read_production_costs`, which renames the use cases to the notebook names (`KPI_USE_CASE_NAMES` in `constants.py`). Writes `results/production_costs.html`.
+
 ### `background_comparison.ipynb`
 Ratios BAFU / ecoinvent of the joining, pre/post and material results, the impact of 1 unit of the main background inputs, and the BAFU import quality.
 
@@ -116,13 +120,13 @@ Ratios BAFU / ecoinvent of the joining, pre/post and material results, the impac
 | `ranges` | Min/max ranges and the exchanges made from them. |
 | `joining`, `prepost` | Exchange builders of the joining and pre/post processes. |
 | `impacts` | The LCIA engine (see below). |
-| `costs` | Cost indicators (consumable, personnel, nominal OPEX), labour hours, labour costs per country (`regional_labour_costs`: Eurostat + GB). |
+| `costs` | Cost indicators (consumable, personnel, nominal OPEX), labour hours, labour costs per country (`regional_labour_costs`: Eurostat + GB), production costs of the KPI calculations (`read_production_costs`). |
 | `lcia`, `regional` | Scenario result tables, regional tables, export. |
 | `workflow` | Assembly per product, with or without the material stage, and the cost table. |
 | `rd` | Product systems of the R&D study, and their contribution tables. |
 | `validation_tests` | Unit processes of the R&D validation tests (energy and consumable estimates). |
 | `bafu`, `compare` | Import of BAFU-2026 (`python -m l4m_lca.bafu`), comparison of 2 backgrounds. |
-| `plots`, `explorer` | Interactive figures. |
+| `plots`, `explorer` | Interactive figures: impact bars, regional maps, production cost bars (`production_cost_bars`), GHG and cost figure (`ghg_cost_bars`), font sizes (`set_font_sizes`). |
 
 ### How the LCIA engine works
 
@@ -156,9 +160,12 @@ These folders are not in git. They hold the data that the notebooks use.
 - `Input_data/`, `data_collection/`: source spreadsheets and cost plots.
 - `Diagrams/`: process diagrams of the R&D study (`L4M_RD_parameter_sets.md`, `L4M_RD_process_connections.md`), their PNG images in `rendered/`, and old diagrams in `archive/`.
 
+`.gitignore` also excludes virtual environments (`.venv/`), Python and test caches, notebook checkpoints, editor settings, Office lock files (`~$*`) and the files that the legacy script `create_LCI.py` writes (`prepostprocess_data.pkl`, `.json`).
+
 ## Setup
 
 1. Create the environment: `conda env create -f environment.yml`.
+   Alternative with pip (Python 3.11 or later): `pip install -r l4m_lca/requirements.txt`. This file pins the runtime dependencies. It also lists `openpyxl` and the BAFU import packages, which `environment.yml` does not have.
 2. Register the kernel: `python -m ipykernel install --user --name brightway --display-name "Python (brightway)"`.
 3. Start the notebooks from this folder, so that `import l4m_lca` works.
 

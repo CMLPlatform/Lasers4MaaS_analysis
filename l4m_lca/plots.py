@@ -30,6 +30,72 @@ SEQ_ORANGE = [[0, "#fde3d3"], [0.5, "#eb6834"], [1, "#7a2c0c"]]
 SEQ_BLUE = [[0, "#cde2fb"], [0.5, "#3987e5"], [1, "#0d366b"]]
 DIVERGING = [[0, "#1c5cab"], [0.5, "#f2f2f0"], [1, "#b23a12"]]
 
+# Font sizes (px) of all figures, by role, before the percent change.
+# Change them with set_font_sizes() before you make a figure. Do not edit FONT directly.
+DEFAULT_FONT = dict(
+    base=14,           # default text (for example the hover labels)
+    title=15,          # figure title
+    subplot_title=15,  # title above each panel
+    legend=14,         # legend items and legend group titles
+    axis_title=13,     # axis titles and colour bar titles
+    tick=12,           # tick labels of the axes and the colour bars
+    label=13,          # value labels in the plot area (bar totals, country codes, Sankey nodes)
+    note=12,           # notes in a panel, for example "No SoA"
+)
+_font_base = dict(DEFAULT_FONT)   # sizes per role before the percent change
+_font_percent = 0               # change of all sizes, in percent
+FONT = dict(DEFAULT_FONT)         # sizes that the figures use: _font_base with the percent change
+
+
+def set_font_sizes(percent=None, reset=False, **sizes):
+    """Set the font sizes of all figures made after the call.
+
+    Args:
+        percent: change of all sizes in percent, for example 20 (20 % larger) or -10 (10 % smaller).
+            It always applies to the sizes before the change, so two calls with 20 give 20 %, not 44 %.
+            Use 0 to remove the change.
+        reset: if True, go back to DEFAULT_FONT and no percent change first.
+        sizes: new size per role (the keys of FONT) before the percent change,
+            for example tick=14, title=18.
+
+    Returns a copy of the new FONT.
+    """
+    global _font_percent
+    unknown = set(sizes) - set(DEFAULT_FONT)
+    if unknown:
+        raise ValueError(f"Unknown font roles {sorted(unknown)}. Use: {list(DEFAULT_FONT)}")
+    if percent is not None and percent <= -100:
+        raise ValueError(f"percent must be more than -100, not {percent}")
+    if reset:
+        _font_base.update(DEFAULT_FONT)
+        _font_percent = 0
+    if percent is not None:
+        _font_percent = percent
+    _font_base.update(sizes)
+    FONT.update({k: max(1, round(v * (1 + _font_percent / 100))) for k, v in _font_base.items()})
+    return dict(FONT)
+
+
+def _apply_fonts(fig, subplot_titles=None):
+    """Apply the FONT sizes to the layout, the axes and the colour bars of a figure.
+
+    `subplot_titles` is "all" (all annotations are panel titles), a list of the panel title texts,
+    or None (no change to the annotations).
+    """
+    fig.update_layout(font=dict(size=FONT["base"], color=INK), title_font_size=FONT["title"],
+                      legend=dict(font_size=FONT["legend"], grouptitlefont_size=FONT["legend"]))
+    for update in (fig.update_xaxes, fig.update_yaxes):
+        update(tickfont_size=FONT["tick"], title_font_size=FONT["axis_title"])
+    for t in fig.data:
+        if t.type == "choropleth":
+            t.colorbar.tickfont.size = FONT["tick"]
+            t.colorbar.title.font.size = FONT["axis_title"]
+    if subplot_titles == "all":
+        fig.update_annotations(font_size=FONT["subplot_title"])
+    elif subplot_titles is not None:
+        titles = set(subplot_titles)
+        fig.update_annotations(font_size=FONT["subplot_title"], selector=lambda a: a.text in titles)
+
 
 def pattern(shape):
     """Marker pattern of a bar: a light texture in white over the bar colour."""
@@ -146,10 +212,10 @@ def scenario_bars(table, use_cases, databases, units, technology_of, indicators)
             slots.append((len(fig.data) - 1, use_case, db_name))
     fig.update_layout(template="plotly_white", height=330 * n_rows + 120, width=1000, bargap=0.3,
                       legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.08, yanchor="top"),
-                      margin=dict(l=70, r=30, t=100, b=90), font=dict(size=14, color=INK))
-    fig.update_yaxes(gridcolor=GRID, title_font_size=13, exponentformat="e")
-    fig.update_xaxes(tickfont_size=13, tickangle=0)
-    fig.update_annotations(font_size=14)
+                      margin=dict(l=70, r=30, t=100, b=90))
+    fig.update_yaxes(gridcolor=GRID, exponentformat="e")
+    fig.update_xaxes(tickangle=0)
+    _apply_fonts(fig, subplot_titles="all")
 
     def update(indicator):
         with fig.batch_update():
@@ -166,7 +232,7 @@ def scenario_bars(table, use_cases, databases, units, technology_of, indicators)
                 trace.customdata = [[low, high]]
             fig.update_yaxes(title_text=units.get(indicator, "unit"))
             fig.update_layout(title=dict(text=f"<b>{indicator}</b>", x=0.5, xanchor="center", y=0.98,
-                                         yanchor="top", font=dict(size=16)))
+                                         yanchor="top", font=dict(size=FONT["title"])))
 
     w = dropdown(indicators, "Indicator:", width="400px", label_width="initial")
     w.observe(lambda change: update(change["new"]), names="value")
@@ -212,24 +278,24 @@ def regional_explorer(table, filters, units, title, baseline="RER", countries=EU
         fig.add_trace(go.Choropleth(
             locations=iso3, z=[0] * len(codes), text=codes, hovertemplate=hover,
             colorbar=dict(x=x, y=bar_y, len=bar_len, thickness=14 if scatter_on_top else 12, outlinewidth=0,
-                          tickfont=dict(size=12), title=dict(font=dict(size=12))),
+                          tickfont=dict(size=FONT["tick"]), title=dict(font=dict(size=FONT["axis_title"]))),
             marker=dict(line=dict(color="white", width=0.5))), row=map_row, col=col)
     fig.add_trace(go.Scatter(
         x=[0] * len(codes), y=[0] * len(codes), mode="markers+text", text=codes, textposition="top center",
-        textfont=dict(size=12, color=INK), marker=dict(size=10, color="#2a78d6", line=dict(color="white", width=1.5)),
+        textfont=dict(size=FONT["label"], color=INK), marker=dict(size=10, color="#2a78d6", line=dict(color="white", width=1.5)),
         hovertemplate="<b>%{text}</b><br>A: %{x:.4g}<br>B: %{y:.4g}<extra></extra>"), row=xy_row, col=1)
     fig.add_trace(go.Scatter(
         x=[0], y=[0], mode="markers+text", text=[baseline], textposition="middle right",
-        textfont=dict(size=12, color=INK, weight="bold"),
+        textfont=dict(size=FONT["label"], color=INK, weight="bold"),
         marker=dict(size=14, symbol="diamond", color=INK, line=dict(color="white", width=1.5)),
         hovertemplate=f"<b>{baseline} baseline</b><br>A: %{{x:.4g}}<br>B: %{{y:.4g}}<extra></extra>"),
         row=xy_row, col=1)
     fig.update_geos(scope="europe", fitbounds="locations", showframe=False, showcountries=True,
                     countrycolor="#c4cad0", showland=True, landcolor="#eceff1", showocean=False,
                     showlakes=False, bgcolor="rgba(0,0,0,0)")
-    fig.update_layout(template="plotly_white", height=height, width=width, showlegend=False, font=dict(size=14, color=INK),
+    fig.update_layout(template="plotly_white", height=height, width=width, showlegend=False,
                       margin=dict(l=70, r=90, t=70, b=50) if scatter_on_top else dict(l=60, r=30, t=60, b=50))
-    fig.update_annotations(font_size=15)
+    _apply_fonts(fig, subplot_titles="all")
     fig.update_xaxes(zeroline=False, gridcolor=GRID)
     fig.update_yaxes(zeroline=False, gridcolor=GRID)
     a_title = 1 if scatter_on_top else 0
@@ -266,7 +332,8 @@ def regional_explorer(table, filters, units, title, baseline="RER", countries=EU
             fig.layout.annotations[a_title + 1].text = f"<b>B</b>  {short(w_b.value)}"
             fig.layout.xaxis.title.text = f"A: {short(w_a.value)} [{ua}]"
             fig.layout.yaxis.title.text = f"B: {short(w_b.value)} [{ub}]"
-            fig.layout.title = dict(text=title({c: w.value for c, w in w_filters.items()}), x=0.01, font=dict(size=15))
+            fig.layout.title = dict(text=title({c: w.value for c, w in w_filters.items()}), x=0.01,
+                                    font=dict(size=FONT["title"]))
 
     for w in (w_a, w_b, w_view, *w_filters.values()):
         w.observe(update, names="value")
@@ -292,14 +359,17 @@ def _follow_legend(fig, panels):
                 n = len(total.y)  # not total.x: a multi-level x axis is a list of levels
                 pos = np.zeros(n)
                 neg = np.zeros(n)
+                has = np.zeros(n, dtype=bool)  # a bar has data (no total label on an empty place)
                 for i in panel["bars"]:
+                    y = np.asarray(fig.data[i].y, dtype=float)
+                    has |= ~np.isnan(y)
                     if fig.data[i].visible in (True, None):
-                        y = np.nan_to_num(np.asarray(fig.data[i].y, dtype=float))
+                        y = np.nan_to_num(y)
                         pos = pos + np.clip(y, 0, None)
                         neg = neg + np.clip(y, None, 0)
                 now = pos + neg
                 total.y = now
-                total.text = [f"{t:.3g}" for t in now]
+                total.text = [f"{t:.3g}" if h else "" for t, h in zip(now, has)]
                 top, bottom = max(pos.max(initial=0), 0), min(neg.min(initial=0), 0)
                 span = (top - bottom) or 1
                 where = {"row": panel["row"], "col": panel["col"]} if "row" in panel else {}
@@ -389,7 +459,7 @@ def workflow_bars(table, stage_titles, default_indicator, scenario):
                 bars.append(len(fig.data) - 1)
             fig.add_trace(go.Scatter(x=x, y=totals.values, mode="text", text=[f"{t:.3g}" for t in totals],
                                      textposition="top center", showlegend=False, hoverinfo="skip",
-                                     textfont=dict(size=13, color=INK)), row=r + 1, col=c + 1)
+                                     textfont=dict(size=FONT["label"], color=INK)), row=r + 1, col=c + 1)
             panels.append({"row": r + 1, "col": c + 1, "bars": bars, "total": len(fig.data) - 1})
             top = totals.max()
             fig.update_yaxes(title_text=unit if c == 0 else None, rangemode="tozero",
@@ -405,8 +475,8 @@ def workflow_bars(table, stage_titles, default_indicator, scenario):
                           title=dict(text=f"{indicator}<br><sup>{scenario} scenario - stacked contribution "
                                           "per process step</sup>", x=0.01),
                           legend=dict(groupclick="togglegroup", orientation="v", x=1.02, y=1, tracegroupgap=12),
-                          margin=dict(t=100, r=40), hoverlabel=dict(bgcolor="white"), font=dict(size=14, color=INK))
-        fig.update_annotations(font_size=15)
+                          margin=dict(t=100, r=40), hoverlabel=dict(bgcolor="white"))
+        _apply_fonts(fig, subplot_titles=products)
         fw = go.FigureWidget(fig)
         _follow_legend(fw, panels)
         out.clear_output(wait=True)
@@ -462,12 +532,13 @@ def grouped_stacked_bars(stack, indicators, default, units, process_types, title
                                               "(%{customdata:.1f}% of total)<extra></extra>")
                     first = False
             fig.add_scatter(x=x, y=tot, mode="text", text=[f"{t:.3g}" for t in tot], textposition="top center",
-                            showlegend=False, hoverinfo="skip")
-            fig.update_layout(barmode="relative", template="plotly_white", height=900, width=1260, font=dict(size=14, color=INK),
-                              title=dict(text=title(w.value), x=0.01, font=dict(size=15)),
+                            showlegend=False, hoverinfo="skip", textfont=dict(size=FONT["label"], color=INK))
+            fig.update_layout(barmode="relative", template="plotly_white", height=900, width=1260,
+                              title=dict(text=title(w.value), x=0.01),
                               yaxis=dict(title=unit, gridcolor=GRID),
                               legend=dict(groupclick="toggleitem", tracegroupgap=14),
                               margin=dict(l=70, r=20, t=80, b=50))
+            _apply_fonts(fig)
         _follow_legend(fig, [{"bars": list(range(len(fig.data) - 1)), "total": len(fig.data) - 1}])
 
     w = dropdown(indicators, "Indicator", default, width="520px", label_width="80px")
@@ -504,10 +575,12 @@ def sankey(links_of, systems, indicators, default, units, totals, root_name):
             t.link.source, t.link.target, t.link.value = src, tgt, val
             t.link.color = "rgba(138,138,133,0.3)"
             t.valueformat, t.valuesuffix = ".3g", f" {unit}"
-            fig.update_layout(template="plotly_white", height=620, font=dict(size=11),
+            t.textfont.size = FONT["label"]
+            fig.update_layout(template="plotly_white", height=620,
                               margin=dict(l=10, r=10, t=60, b=10),
                               title=dict(text=f"{w_sys.value}: {short(w_ind.value)}, net total "
-                                              f"{totals(system, w_ind.value):.4g} {unit}", x=0.01, font=dict(size=15)))
+                                              f"{totals(system, w_ind.value):.4g} {unit}", x=0.01))
+            _apply_fonts(fig)
 
     for w in (w_sys, w_ind):
         w.observe(draw, names="value")
@@ -531,11 +604,12 @@ def paired_maps(value, use_cases, scenarios, indicators, default, units, countri
     for col, x in ((1, 0.46), (2, 1.0)):
         fig.add_trace(go.Choropleth(locations=iso3, z=[0] * len(codes), text=codes,
                                     hovertemplate="<b>%{text}</b><br>%{z:.4g}<extra></extra>",
-                                    colorbar=dict(x=x, len=0.8, thickness=12, outlinewidth=0, tickfont=dict(size=10)),
+                                    colorbar=dict(x=x, len=0.8, thickness=12, outlinewidth=0),
                                     marker=dict(line=dict(color="white", width=0.5))), row=1, col=col)
     fig.update_geos(scope="europe", fitbounds="locations", showframe=False, showcountries=True, countrycolor="#c4cad0",
                     showland=True, landcolor="#eceff1", showocean=False, showlakes=False, bgcolor="rgba(0,0,0,0)")
-    fig.update_layout(template="plotly_white", height=520, font=dict(size=12), margin=dict(l=20, r=20, t=80, b=20))
+    fig.update_layout(template="plotly_white", height=520, margin=dict(l=20, r=20, t=80, b=20))
+    _apply_fonts(fig, subplot_titles="all")
 
     def update(_=None):
         pct = w_view.value != "Absolute"
@@ -552,9 +626,227 @@ def paired_maps(value, use_cases, scenarios, indicators, default, units, countri
                 trace.z, trace.zmin, trace.zmax = z, lo, hi
                 trace.colorscale = "RdBu_r" if pct else "YlOrRd"
                 trace.colorbar.title.text = unit
-            fig.layout.title = dict(text=title(w_uc.value, w_ind.value), x=0.01, font=dict(size=15))
+            fig.layout.title = dict(text=title(w_uc.value, w_ind.value), x=0.01, font=dict(size=FONT["title"]))
 
     for w in (w_ind, w_uc, w_view):
         w.observe(update, names="value")
     update()
     return widgets.VBox([widgets.HBox([w_ind, w_uc]), w_view, fig])
+
+
+# ---------------------------------------------------------------------------
+# Production costs (KPI calculations): stacked bar per use case and technology
+# ---------------------------------------------------------------------------
+
+# Colour of each cost type, in stack order (bottom to top). The colours differ from the process stage
+# colours (STEP_COLORS), so that a figure with impacts and costs gives one meaning to each colour.
+# Material costs have the colour of the material stage.
+COST_COLORS = {
+    "Labour costs": "#6250d6",
+    "Consumables + energy costs": "#e87ba4",
+    "Material costs": "#eda100",
+    "Maintenance costs": "#e34948",
+    "Depreciation costs": "#6b7370",
+}
+
+
+def production_cost_bars(table, unit="EUR/item", technologies=("SoA", "L4M"), n_cols=3):
+    """Stacked bar per use case and technology, one segment per cost type, with the total on top.
+
+    `table` is the result of costs.read_production_costs. A use case without a SoA value keeps the
+    SoA place on the x axis, with the note "No SoA".
+    """
+    use_cases = list(dict.fromkeys(table["use_case"]))
+    costs = [c for c in COST_COLORS if c in set(table["cost"])] + \
+            [c for c in dict.fromkeys(table["cost"]) if c not in COST_COLORS]
+    others = iter(c for c in FALLBACK_COLORS if c not in COST_COLORS.values())
+    colors = {c: COST_COLORS.get(c) or next(others) for c in costs}
+    n_rows = -(-len(use_cases) // n_cols)
+    fig = make_subplots(rows=n_rows, cols=n_cols, subplot_titles=use_cases,
+                        horizontal_spacing=0.07, vertical_spacing=0.16)
+    panels = []
+    for i, use_case in enumerate(use_cases):
+        r, c = divmod(i, n_cols)
+        sub = table[table["use_case"] == use_case].pivot_table(
+            index="technology", columns="cost", values="value", aggfunc="sum").reindex(
+            index=list(technologies), columns=costs)
+        totals = sub.sum(axis=1, min_count=1)
+        x = list(technologies)
+        bars = []
+        for cost in costs:
+            vals = sub[cost].values
+            share = np.nan_to_num(vals / totals.values * 100)
+            fig.add_trace(go.Bar(
+                x=x, y=vals, name=cost,
+                marker=dict(color=colors[cost], line=dict(color="white", width=1.5)),
+                legendgroup=cost, showlegend=i == 0,
+                customdata=share,
+                hovertemplate=f"<b>{use_case}, %{{x}}</b><br>{cost}: %{{y:.3g}} {unit}"
+                              "<br>%{customdata:.1f}% of total<extra></extra>"),
+                row=r + 1, col=c + 1)
+            bars.append(len(fig.data) - 1)
+        fig.add_trace(go.Scatter(x=x, y=totals.fillna(0).values, mode="text",
+                                 text=[f"{t:.3g}" if pd.notna(t) else "" for t in totals],
+                                 textposition="top center", showlegend=False, hoverinfo="skip",
+                                 textfont=dict(size=FONT["label"], color=INK)), row=r + 1, col=c + 1)
+        for tech in totals.index[totals.isna()]:
+            fig.add_annotation(x=tech, y=0, text=f"No {tech}", showarrow=False, yanchor="bottom", yshift=4,
+                               font=dict(size=FONT["note"], color="#6b7370"), row=r + 1, col=c + 1)
+        panels.append({"row": r + 1, "col": c + 1, "bars": bars, "total": len(fig.data) - 1})
+        top = totals.max()
+        fig.update_yaxes(title_text=unit if c == 0 else None, rangemode="tozero", gridcolor=GRID,
+                         range=[0, top * 1.15 if top > 0 else 1], row=r + 1, col=c + 1)
+        fig.update_xaxes(tickangle=0, automargin=True, row=r + 1, col=c + 1)
+
+    fig.update_layout(barmode="stack", template="plotly_white", height=380 * n_rows + 80, width=1200,
+                      title=dict(text="Total production costs<br><sup>Stacked contribution per cost type "
+                                      "(KPI calculations)</sup>", x=0.01),
+                      legend=dict(orientation="v", x=1.02, y=1, traceorder="reversed"),
+                      margin=dict(t=100, r=40), hoverlabel=dict(bgcolor="white"))
+    _apply_fonts(fig, subplot_titles=use_cases)
+    fw = go.FigureWidget(fig)
+    _follow_legend(fw, panels)
+    return fw
+
+
+# ---------------------------------------------------------------------------
+# GHG emissions (LCA, top row) and production costs (KPI calculations, bottom row) per use case
+# ---------------------------------------------------------------------------
+
+def ghg_cost_bars(workflow, costs, indicator, stage_titles, use_cases, stages=("join",), cost_unit="EUR/item"):
+    """One column per use case: stacked LCA impact per process step (top) and production costs (bottom).
+
+    Args:
+        workflow: result of workflow.workflow_table (LCA, per product and joining technology).
+        costs: result of costs.read_production_costs (KPI calculations, technologies "SoA" and "L4M").
+        indicator: start of the impact indicator name, for example "climate change: total".
+        stage_titles: {stage: legend title}, for example workflow.STAGE_TITLES.
+        use_cases: column order. Only the use cases with LCA results and costs are shown.
+        stages: workflow stages of the LCA row (default: the joining stage only).
+
+    The x axis has 2 places per use case: "SoA" (the state-of-the-art technology of the LCA, in the
+    hover text) and the L4M-solution. A click on a legend item updates the totals and the y axes.
+    """
+    l4m = L4M_SOLUTION_TECHNOLOGY
+    x = ["SoA", l4m]
+    data = workflow[workflow["indicator"].str.startswith(indicator) & workflow["stage"].isin(stages)]
+    if data.empty:
+        raise ValueError(f"No indicator {indicator!r} for the stages {stages} in the workflow table")
+    use_cases = [u for u in use_cases if u in set(data["product"]) and u in set(costs["use_case"])]
+    name = data["indicator"].iloc[0]
+    unit = name.split("[")[-1].rstrip("]") if "[" in name else ""
+    title = name.split(" [")[0]
+    cost_types = [c for c in COST_COLORS if c in set(costs["cost"])]
+    steps = sorted({(st, sp) for st, sp in zip(data["stage"], data["step"])},
+                   key=lambda k: (STAGE_RANK[k[0]], list(STEP_COLORS).index(k) if k in STEP_COLORS else 99))
+    step_rank = {k: STAGE_RANK[k[0]] + i + 1 for i, k in enumerate(STEP_COLORS)}
+    cost_rank = {c: 900 - i for i, c in enumerate(cost_types)}   # legend top to bottom = stack top to bottom
+
+    def pretty(step):
+        return step.replace("_", " ").capitalize()
+
+    n = len(use_cases)
+    fig = make_subplots(rows=2, cols=n, subplot_titles=list(use_cases), horizontal_spacing=0.035,
+                        vertical_spacing=0.1)
+    fig.update_yaxes(gridcolor=GRID)
+    shown, panels = set(), []
+    for i, use_case in enumerate(use_cases):
+        col = i + 1
+        # Top: LCA impact per process step
+        sub = data[data["product"] == use_case].pivot_table(index="technology", columns=["stage", "step"],
+                                                            values="value", aggfunc="sum")
+        soa = [t for t in sub.index if t != l4m]
+        if len(soa) > 1:
+            raise ValueError(f"{use_case}: more than one state-of-the-art technology {soa}")
+        techs = [soa[0] if soa else None, l4m]
+        sub = sub.reindex(index=techs, columns=pd.MultiIndex.from_tuples(steps))
+        totals = sub.sum(axis=1, min_count=1)
+        bars = []
+        for stage, step in steps:
+            vals = sub[(stage, step)].values
+            if np.all(np.nan_to_num(vals) == 0):
+                continue
+            share = np.nan_to_num(vals / totals.values * 100)
+            fig.add_trace(go.Bar(
+                x=x, y=vals, name=pretty(step), legendgroup=f"{stage}:{step}",
+                legendrank=step_rank.get((stage, step), 400), showlegend=(stage, step) not in shown,
+                marker=dict(color=STEP_COLORS.get((stage, step), "#999999"), line=dict(color="white", width=1.5),
+                            pattern=pattern(STEP_PATTERNS.get((stage, step), ""))),
+                customdata=np.column_stack([share, [t or "" for t in techs]]),
+                hovertemplate=f"<b>{use_case}, %{{customdata[1]}}</b><br>{pretty(step)}: %{{y:.3g}} {unit}"
+                              "<br>%{customdata[0]:.1f}% of total<extra></extra>"), row=1, col=col)
+            shown.add((stage, step))
+            bars.append(len(fig.data) - 1)
+        _totals_and_notes(fig, x, totals, ["No SoA" if techs[0] is None else "No LCA results", "No LCA results"],
+                          bars, panels, 1, col)
+
+        # Bottom: production costs per cost type
+        sub = costs[costs["use_case"] == use_case].pivot_table(index="technology", columns="cost", values="value",
+                                                                aggfunc="sum").reindex(index=["SoA", "L4M"],
+                                                                                       columns=cost_types)
+        totals = sub.sum(axis=1, min_count=1)
+        bars = []
+        for cost in cost_types:
+            vals = sub[cost].values
+            share = np.nan_to_num(vals / totals.values * 100)
+            fig.add_trace(go.Bar(
+                x=x, y=vals, name=cost, legendgroup=f"cost:{cost}", legendrank=cost_rank[cost],
+                showlegend=cost not in shown,
+                marker=dict(color=COST_COLORS[cost], line=dict(color="white", width=1.5)),
+                customdata=share,
+                hovertemplate=f"<b>{use_case}, %{{x}}</b><br>{cost}: %{{y:.3g}} {cost_unit}"
+                              "<br>%{customdata:.1f}% of total<extra></extra>"), row=2, col=col)
+            shown.add(cost)
+            bars.append(len(fig.data) - 1)
+        no_soa = sub.loc["SoA"].isna().all() and not sub.loc["L4M"].isna().all()
+        _totals_and_notes(fig, x, totals, ["No SoA" if no_soa else "No cost data", "No cost data"],
+                          bars, panels, 2, col)
+
+    # Legend headers: traces without data that show a section title only
+    stages = list(dict.fromkeys(st for st, _ in steps if (st, _) in shown))
+    for stage in stages:
+        header = "GHG emissions" if len(stages) == 1 else stage_titles[stage]
+        _legend_header(fig, f"<b>{header}</b>", STAGE_RANK[stage], f"header_{stage}")
+    _legend_header(fig, "<b>Production costs</b>", 800, "header_costs")
+
+    fig.update_yaxes(rangemode="tozero")
+    fig.update_yaxes(title_text=f"GHG emissions [{unit}]", row=1, col=1)
+    fig.update_yaxes(title_text=f"Production costs [{cost_unit}]", row=2, col=1)
+    fig.update_xaxes(tickangle=0)
+    fig.update_xaxes(showticklabels=False, row=1)
+    fig.update_layout(barmode="stack", template="plotly_white", height=820, width=260 * n + 300,
+                      title=dict(text=f"GHG emissions and production costs per use case<br><sup>Top: {title} "
+                                      f"(LCA, {', '.join(stage_titles[st].lower() for st in stages)}). "
+                                      "Bottom: total production costs "
+                                      "(KPI calculations, per cost type)</sup>", x=0.01),
+                      legend=dict(groupclick="togglegroup", orientation="v", x=1.01, y=1, tracegroupgap=8),
+                      margin=dict(t=110, r=30, l=80), hoverlabel=dict(bgcolor="white"))
+    _apply_fonts(fig, subplot_titles=use_cases)
+    fw = go.FigureWidget(fig)
+    _follow_legend(fw, panels)
+    return fw
+
+
+def _totals_and_notes(fig, x, totals, notes, bars, panels, row, col):
+    """Total label above each stacked bar, and a note at the place of a bar without data."""
+    fig.add_trace(go.Scatter(x=x, y=totals.fillna(0).values, mode="text",
+                             text=[f"{t:.3g}" if pd.notna(t) else "" for t in totals],
+                             textposition="top center", showlegend=False, hoverinfo="skip",
+                             textfont=dict(size=FONT["label"], color=INK)), row=row, col=col)
+    panels.append({"row": row, "col": col, "bars": bars, "total": len(fig.data) - 1})
+    if totals.isna().all():   # empty panel: one note in the middle, no y scale
+        fig.add_annotation(x=0.5, y=0.5, xref="x domain", yref="y domain", text=notes[-1], showarrow=False,
+                           font=dict(size=FONT["note"], color="#6b7370"), row=row, col=col)
+        fig.update_yaxes(showticklabels=False, showgrid=False, row=row, col=col)
+        return
+    for place, total, note in zip(x, totals, notes):
+        if pd.isna(total):
+            fig.add_annotation(x=place, y=0, text=note.replace(" ", "<br>", 1), showarrow=False,
+                               yanchor="bottom", yshift=4, font=dict(size=FONT["note"], color="#6b7370"), row=row, col=col)
+    top = totals.max()
+    fig.update_yaxes(range=[0, top * 1.15 if top > 0 else 1], row=row, col=col)
+
+
+def _legend_header(fig, text, rank, group):
+    fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", marker=dict(size=0, opacity=0), name=text,
+                             legendgroup=group, legendrank=rank, hoverinfo="skip"), row=1, col=1)

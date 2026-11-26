@@ -81,3 +81,9 @@ def test_unsupported_exchange_type():
 def test_is_electricity_both_backgrounds(name, expected):
     from l4m_lca.impacts import is_electricity
     assert is_electricity({"name": name}) is expected
+
+
+def test_executions_scale_by_production_amount(system):
+    from l4m_lca.impacts import foreground_executions
+    # top uses 2 units of sub (which produces 4 per execution)
+    assert foreground_executions(system["top"], FG, amount=3.0) == {("fg", "top"): 3.0, ("fg", "sub"): 6.0}

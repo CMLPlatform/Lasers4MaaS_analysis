@@ -71,8 +71,33 @@ GB_LABOUR_COST_2025 = {"GB": round(GB_LABOUR_COST_GBP_2025 / GBP_PER_EUR_2025, 1
 # Regional analysis: baseline label (EU27 average) and industrial electricity price of each country (EUR/kWh)
 REGIONAL_BASELINE = "RER"
 REGIONAL_ELEC_PRICE = {**EUROSTAT_ELEC_PRICE_2025S1, **GB_ELEC_PRICE_2025S1}
+
+# Prices of the pre- and post-joining inputs, per ecoinvent unit of each flow (pre_post.ipynb, L4M_R&D.ipynb).
+# INDICATIVE PLACEHOLDER PRICES except electricity: replace with supplier quotes. Chemicals are per kg of
+# ACTIVE substance, as modelled (ecoinvent "without water" datasets), so they are higher than the diluted
+# commercial price.
+PREPOST_PRICES = {
+    "electricity":        EUROSTAT_ELEC_PRICE_2025S1["RER"],   # EUR/kWh, Eurostat 2025-S1, band ID, EU27 average (0.164)
+    "water":              0.004,  # EUR/kg, tap water with discharge (about 4 EUR/m3)
+    "sodium_hydroxide":   0.50,   # EUR/kg
+    "hydrochloric_acid":  0.25,   # EUR/kg
+    "nitric_acid":        0.45,   # EUR/kg
+    "abrasive":           1.50,   # EUR/kg, alumina grit
+    "polishing_compound": 1.50,   # EUR/kg, alumina proxy
+    "grinding_wheel":     2.50,   # EUR/kg, silicon carbide proxy
+    "coolant":            2.00,   # EUR/kg, lubricating oil proxy
+    "tool_material":      60.0,   # EUR/kg, tungsten carbide
+}
 # Eurostat labour cost per hour (lc_lci_lev 2025, NACE C): sheet "labour_cost" of this file
 LABOUR_COST_FILE = "Input_data/country_data.xlsx"
+# KPI calculations of the project (costs per item of each use case, SoA and L4M-solution)
+KPI_FILE = "Input_data/KPI_calculations.xlsx"
+KPI_COST_SHEETS = ("Comp-usecase1", "Comp-usecase2")   # aluminium and stainless steel use cases
+# Use case names of the KPI file -> names of the LCA notebooks (joining_task, workflow_assembly)
+KPI_USE_CASE_NAMES = {"Fuel tank pipe": "Fuel tank", "Pharma shelve": "Freeze Dryers Shelf"}
+# Order of the use cases in the figures (as in the LCA notebooks; Fusion plant pipe is in the KPI file only)
+USE_CASE_ORDER = ("Heat exchanger", "Fuel tank", "Heterogeneous pipe", "Freeze Dryers Shelf", "Battery cooling plate",
+                  "Fusion plant pipe")
 
 # Foreground databases that the notebooks write
 SOA_DATABASE = "State_of_the_Art"                       # joining_task.ipynb

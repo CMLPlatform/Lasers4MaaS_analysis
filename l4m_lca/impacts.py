@@ -83,6 +83,21 @@ def foreground_flows(activity, foreground, scenario="amount", amount=1.0, path=(
     return flows
 
 
+def foreground_executions(activity, foreground, scenario="amount", amount=1.0, out=None):
+    """Walk the foreground below `activity` and return how much each foreground process supplies.
+
+    Returns {foreground key: units of its reference product}, for `amount` units of the
+    reference product of `activity` (`activity` itself included). Same walk as `foreground_flows`.
+    """
+    out = {} if out is None else out
+    out[activity.key] = out.get(activity.key, 0.0) + amount
+    scale = amount / production_amount(activity)
+    for exc in activity.exchanges():
+        if exc["type"] == "technosphere" and exc.input["database"] in foreground:
+            foreground_executions(exc.input, foreground, scenario, scale * scenario_amount(exc, scenario), out)
+    return out
+
+
 def lca_for(demand, method):
     """bw2calc LCA object for a {node: amount} demand, with the data that bw2data supplies."""
     fu, data_objs, remapping = bd.prepare_lca_inputs(demand, method=method)
